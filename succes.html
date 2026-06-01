@@ -1,11 +1,46 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    
-</body>
-</html>
+const params = new URLSearchParams(window.location.search);
+const produitId = params.get("produitId");
+
+const container = document.getElementById("download");
+
+async function verifierAcces() {
+
+  if (!produitId) {
+    container.innerHTML = "❌ Produit introuvable";
+    return;
+  }
+
+  container.innerHTML = "🔄 Vérification du paiement...";
+
+  try {
+
+    const res = await fetch("/.netlify/functions/check-access", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ produitId })
+    });
+
+    const data = await res.json();
+
+    if (data.allowed && data.file) {
+
+      container.innerHTML = `
+        <a class="button" href="/assets/downloads/${data.file}" download>
+          📥 Télécharger votre fichier
+        </a>
+      `;
+
+    } else {
+      container.innerHTML = "❌ Accès refusé ou paiement non validé";
+    }
+
+  } catch (error) {
+
+    console.error(error);
+    container.innerHTML = "❌ Erreur serveur, réessayez";
+  }
+}
+
+verifierAcces();

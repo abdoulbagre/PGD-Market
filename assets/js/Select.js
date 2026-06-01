@@ -16,3 +16,6 @@ document.querySelector("#payerBtn").dataset.nom = p.nom;
 
 document.querySelector("#payerBtn").dataset.prix = p.prix;
 
+document.querySelector("#payerBtn").dataset.id = p.id;
+
+

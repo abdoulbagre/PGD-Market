@@ -1,89 +1,88 @@
 export const handler = async (event) => {
-
   try {
 
-    // Vérifie que la requête est POST
     if (event.httpMethod !== "POST") {
       return {
         statusCode: 405,
-        body: JSON.stringify({
-          error: "Méthode non autorisée"
-        })
+        body: JSON.stringify({ error: "Méthode non autorisée" })
       };
     }
 
-    // Parse sécurisé
     const body = JSON.parse(event.body || "{}");
 
-    const nomProduit = body.nomProduit;
-    const prixProduit = Number(body.prixProduit);
+    const nom = body.nom;
+    const email = body.email;
+    const produitId = body.produitId;
 
-    // Validation
-    if (!nomProduit || !prixProduit) {
+    // ✅ VALIDATION
+    if (!nom || !email || !produitId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({
-          error: "Produit ou prix manquant"
-        })
+        body: JSON.stringify({ error: "Données manquantes" })
       };
     }
 
-    // Requête Moneroo
+    // 🔥 DATASET SERVEUR (SECURITÉ)
+    const produits = {
+      1: {
+        nom: "Guide Pratique du Marketing avec l’IA",
+        prix: 2000,
+        fichier: "Guide-Marketing-IA.pdf"
+      }
+    };
+
+    const produit = produits[produitId];
+
+    if (!produit) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Produit invalide" })
+      };
+    }
+
+    const prixProduit = produit.prix;
+    const nomProduit = produit.nom;
+
+    // 🚀 MONEROO
     const response = await fetch(
       "https://api.moneroo.io/v1/payments/initialize",
       {
         method: "POST",
-
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
-
-          Authorization:
-            `Bearer ${process.env.MONEROO_SECRET_KEY}`
+          Authorization: `Bearer ${process.env.MONEROO_SECRET_KEY}`
         },
-
         body: JSON.stringify({
-
           amount: prixProduit,
-
           currency: "XOF",
-
           description: nomProduit,
 
-          return_url:
-            "https://pgd-market.netlify.app/success.html",
-          
-          cancel_url:
-            "https://pgd-market.netlify.app/annule.html",
-
-          callback_url:
-            "https://pgd-market.netlify.app/.netlify/functions/webhook",
+          return_url: `https://pgd-market.netlify.app/success.html?produitId=${produitId}`,
+          cancel_url: "https://pgd-market.netlify.app/annule.html",
+          callback_url: "https://pgd-market.netlify.app/.netlify/functions/webhook",
 
           customer: {
-            first_name: "Client",
-            last_name: "PGD",
-            email: "client@example.com"
+            first_name: nom,
+            last_name: "",
+            email: email
           },
 
           metadata: {
-            produit: nomProduit
+            produitId,
+            nomProduit
           }
-
         })
       }
     );
 
-    // Réponse API
     const data = await response.json();
 
     console.log("MONEROO RESPONSE:", data);
 
-    // Vérifie si Moneroo retourne une erreur
     if (!response.ok) {
-
       return {
         statusCode: response.status,
-
         body: JSON.stringify({
           error: data.message || "Erreur Moneroo",
           details: data
@@ -91,14 +90,14 @@ export const handler = async (event) => {
       };
     }
 
-    // Vérifie checkout_url
-    const checkoutUrl = data?.data?.checkout_url;
+    const checkoutUrl =
+      data?.data?.checkout_url ||
+      data?.checkout_url ||
+      data?.result?.checkout_url;
 
     if (!checkoutUrl) {
-
       return {
         statusCode: 500,
-
         body: JSON.stringify({
           error: "Lien de paiement introuvable",
           details: data
@@ -106,27 +105,20 @@ export const handler = async (event) => {
       };
     }
 
-    // Succès
     return {
       statusCode: 200,
-
       body: JSON.stringify({
-
         success: true,
-
-        paymentId: data.data.id,
-
+        paymentId: data.data?.id,
         checkout_url: checkoutUrl
       })
     };
 
   } catch (error) {
-
     console.error("SERVER ERROR:", error);
 
     return {
       statusCode: 500,
-
       body: JSON.stringify({
         error: error.message
       })

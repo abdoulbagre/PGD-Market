@@ -3,10 +3,9 @@ function afficher(l){c.innerHTML="";l.forEach(p=>{
 c.innerHTML+=
 `<div class="produit"> 
       <a class="btn-download" href="${p.image}" download>
-        <img src="assets/Background/téléchargement.png">
       </a>  
-      <a href="${p.image}" >
-        <img src=${p.image}>
+      <a href="Detail_produit.html?id=${p.id}" >
+        <img class="image-Produit" src=${p.image}>
       </a>  
       
       <h3>${p.nom}</h3>
@@ -14,7 +13,7 @@ c.innerHTML+=
         <span class="old-price">${p.oldprix} F CFA</span>
         <span class="new-price">${p.prix} F CFA</span>
       </p>
-      <a class="btn-commande" href="Detail_produit.html?id=${p.id}">voir les détails</a>
+      <a class="btn-commande" href="Detail_produit.html?id=${p.id}">voir les détails → </a>
   </div>`})
 }
 

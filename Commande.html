@@ -11,8 +11,28 @@
 
   <div class="checkout">
 
+
+
+    <!-- RÉSUMÉ -->
+    <div class="summary-box">
+
+    <h2>Votre commande</h2>
+
+      <section class="detail-produit">
+        <img style="width: 300px;" class="image-Produit">
+        <div class="info-Produit">
+            <h2 class="titreProduit"></h2>
+            <p class="descriptionProduit" style="display: none;"></p>
+            <div class="price-contain">
+              Net à Payer: <h3 class="prixProduit"></h3>
+            </div>
+        </div>
+      </section>
+
+    </div>
+
     <!-- FORMULAIRE -->
-    <div class="form-box">
+    <form class="form-box">
 
       <h2>Informations client</h2>
 
@@ -25,27 +45,9 @@
         <label>Email</label>
         <input type="email" id="email" required >
       </div>
+      <button type="submit" id="payerBtn">Payer</button>
+    </form>
 
-    </div>
-
-    <!-- RÉSUMÉ -->
-    <div class="summary-box">
-
-      <h2>Votre commande</h2>
-
-    <section class="detail-produit">
-      <img class="image-Produit">
-      <div class="info-Produit">
-          <h2 class="titreProduit"></h2>
-          <p class="descriptionProduit" style="display: none;"></p>
-          <div class="price-contain">
-            Net à Payer: <h3 class="prixProduit"></h3>
-          </div>
-          <button id="payerBtn">Payer</button>
-      </div>
-    </section>
-
-    </div>
 
   </div>
 <script defer src="assets/js/Data.js"></script>
