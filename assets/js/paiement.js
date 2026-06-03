@@ -1,18 +1,19 @@
-const boutons = document.querySelectorAll("#payerBtn");
+const boutons = document.querySelectorAll(".payerBtn");
 
 let isProcessing = false;
 
 boutons.forEach((bouton) => {
-
   bouton.addEventListener("click", async () => {
-
     if (isProcessing) return;
     isProcessing = true;
 
     const ancienTexte = bouton.innerText;
 
-    try {
+    // sauvegarde état initial
+    bouton.disabled = true;
+    bouton.innerText = "Chargement...";
 
+    try {
       const nomProduit = bouton.dataset.nom?.trim();
       const produitId = bouton.dataset.id;
 
@@ -30,11 +31,6 @@ boutons.forEach((bouton) => {
         return;
       }
 
-      // Désactive bouton
-      bouton.disabled = true;
-      bouton.innerText = "Chargement...";
-
-      // Requête backend (⚠️ plus de prix côté client)
       const response = await fetch("/.netlify/functions/create-payment", {
         method: "POST",
         headers: {
@@ -67,11 +63,10 @@ boutons.forEach((bouton) => {
         throw new Error("Lien de paiement introuvable");
       }
 
-      // Redirection vers paiement
+      // Redirection paiement
       window.location.href = redirectUrl;
 
     } catch (error) {
-
       console.error("PAYMENT ERROR:", error);
 
       bouton.innerText = "❌ Erreur paiement";
@@ -81,7 +76,7 @@ boutons.forEach((bouton) => {
       }, 2000);
 
     } finally {
-
+      // 🔥 toujours reset proprement
       bouton.disabled = false;
       isProcessing = false;
     }

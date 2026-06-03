@@ -1,12 +1,9 @@
-const BOUTIQUE_NOM="Boutique BF";
-const DEVISE="FCFA";
-const WHATSAPP_NUMERO="22657615566";
 const dataSet=[
 {
 id:1,
 nom:"Guide Pratique du Marketing avec l’IA",
-oldprix:2500,
-prix:2000,
+oldprix:(5000),
+prix:3000,
 image:"assets/produits/1.jpg",
 categorie:"",
 description:"Dominez le marketing moderne grâce à la puissance de l’IA. <br>Ce guide complet vous dévoile comment exploiter les outils d’intelligence artificielle pour propulser votre stratégie marketing à un niveau supérieur. <br>Découvrez comment automatiser vos campagnes, analyser le comportement de vos clients en profondeur et créer des contenus percutants en un temps record. <br>Grâce à ce livre, vous apprendrez : <br>✅ Les fondements du marketing intelligent à l’ère numérique. <br>✅ Comment utiliser l’IA pour cibler les bons clients au bon moment. <br>✅ Les secrets pour augmenter vos conversions grâce à l’analyse prédictive. <br>✅ Les meilleurs outils IA pour la création de publicités, d’e-mails et de visuels automatisés. <br>✅ Comment bâtir une marque solide et durable grâce à la personnalisation assistée par l’intelligence artificielle.<br>💡 Ce guide est une véritable bible moderne pour entrepreneurs, marketeurs et créateurs de contenu qui veulent transformer leur business avec l’IA. <br>Préparez-vous à révolutionner votre manière de communiquer, vendre et innover !",

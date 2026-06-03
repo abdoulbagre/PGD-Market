@@ -112,7 +112,7 @@ header img {
 
 
 /* Bouton commander */
-.btn-commande {
+.detailBtn {
     width: 100%;
     color: var(--vert);
     padding: 8px;
@@ -122,7 +122,7 @@ header img {
     display: grid;
 }
 
-.btn-commande:hover {
+.detailBtn:hover {
     transition: 0.3s;
     background-color: #006400;
     color: var(--blanc);
@@ -226,7 +226,21 @@ input{
   font-size:18px;
   font-weight:bold;
 }
-#payerBtn{
+.commanderBtn{
+    width: 300px;
+    height: 40px;
+    padding:12px 20px; 
+    margin: 15px 0;
+    background:#28a745; 
+    color:#fff; 
+    text-decoration:none; 
+    border-radius:8px; 
+    border: none;
+    text-align:center;
+    bottom: 10px;
+}
+
+.payerBtn{
     width: 300px;
     height: 40px;
     padding:12px 20px; 

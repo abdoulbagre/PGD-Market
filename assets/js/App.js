@@ -13,7 +13,7 @@ c.innerHTML+=
         <span class="old-price">${p.oldprix} F CFA</span>
         <span class="new-price">${p.prix} F CFA</span>
       </p>
-      <a class="btn-commande" href="Detail_produit.html?id=${p.id}">voir les détails → </a>
+      <a class="detailBtn" href="Detail_produit.html?id=${p.id}">voir les détails → </a>
   </div>`})
 }
 
