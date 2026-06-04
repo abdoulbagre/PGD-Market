@@ -28,7 +28,7 @@ exports.handler = async (event) => {
       {
         id: 1,
         nom: "Guide Pratique du Marketing avec l’IA",
-        prix: 5,
+        prix: "3000",
         fichier: "Guide Pratique du Marketing avec l’IA.pdf"
       },
 
