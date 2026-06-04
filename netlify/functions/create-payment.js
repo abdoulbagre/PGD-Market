@@ -28,10 +28,73 @@ exports.handler = async (event) => {
       {
         id: 1,
         nom: "Guide Pratique du Marketing avec l’IA",
-        prix: 3000,
-        fichier: "Guide-Marketing-IA.pdf"
+        prix: 5,
+        fichier: "Guide Pratique du Marketing avec l’IA.pdf"
+      },
+
+      {
+        id:2,
+        nom:"Comprendre le marketing sur les réseaux sociaux",
+        prix:0,
+        fichier: "",
+      },
+
+      {
+        id:3,
+        nom:"Apprendre à rédiger un mémoire universitaire — Licence, Master, Doctorat",
+        prix:0,
+        fichier: "",
+      },
+
+      {
+        id:4,
+        nom:"2000 (Outils d’Intelligence Artificielle) IA POUR CHANGER VOTRE VIE",
+        prix:0,
+        fichier: "",
+      },
+
+      {
+        id:5,
+        nom:"GUIDE CANVA PRO GRATUIT A VIE",
+        prix:0,
+        fichier: "",
+      },
+
+      {
+        id:6,
+        nom:"Stratégies pour Générer du Trafic sur YouTube",
+        prix:0,
+        fichier: "",
+      },
+
+      {
+        id:7,
+        nom:"Créer une Application Mobile Rentable",
+        prix:0,
+        fichier: "",
+      },
+
+      {
+        id:8,
+        nom:"Apprendre les bases de la crypto-monnaie et du Trading",
+        prix:0,
+        fichier: "",
+      },
+
+      {
+        id:9,
+        nom:"Le Grand Livre des Prompts : 1000 PROMPTS pour ChatGPT",
+        prix:0,
+        fichier: "",
+      },
+
+      {
+        id:10,
+        nom:"Apprendre les bases de la monétisation Facebook – De A à Z",
+        prix:0,
+        fichier: "",
       }
-    ];
+      ];
 
     // Recherche du produit
     const produit = produits.find(
