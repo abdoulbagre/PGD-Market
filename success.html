@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paiement réussi</title>
+
+    <link rel="stylesheet" href="assets/css/style.css">
+s</head>
+<body>
+
+    <div class="container">
+
+        <div class="success-icon">✅</div>
+
+        <h1>Paiement confirmé</h1>
+
+        <p class="subtitle">
+            Merci pour votre achat.
+        </p>
+
+        <div id="content" class="card">
+            Préparation de votre téléchargement...
+        </div>
+
+    </div>
+
+    <!-- Ton fichier Data.js -->
+    <script src="/assets/js/Data.js"></script>
+
+    <script>
+
+        const content = document.getElementById("content");
+
+        const params = new URLSearchParams(window.location.search);
+
+        const produitId = Number(params.get("produitId"));
+
+        if (!produitId) {
+
+            content.innerHTML = `
+                <p>❌ Produit introuvable.</p>
+            `;
+
+        } else {
+
+            const produit = dataSet.find(
+                p => p.id === produitId
+            );
+
+            if (!produit) {
+
+                content.innerHTML = `
+                    <p>❌ Produit introuvable.</p>
+                `;
+
+            } else if (!produit.fichier) {
+
+                content.innerHTML = `
+                    <h2>${produit.nom}</h2>
+                    <p>⚠️ Ce produit n'est pas encore disponible au téléchargement.</p>
+                `;
+
+            } else {
+
+                const fileUrl = `/assets/Download/${produit.fichier}`;
+
+                content.innerHTML = `
+                    <img
+                        src="${produit.image}"
+                        alt="${produit.nom}"
+                        class="product-image"
+                    >
+
+                    <h2>${produit.nom}</h2>
+
+                    <p>
+                        Votre paiement a été validé avec succès.
+                    </p>
+
+                    <a
+                        id="downloadBtn"
+                        class="btn"
+                        href="${fileUrl}"
+                        download
+                    >
+                        📥 Télécharger maintenant
+                    </a>
+
+                    <p class="info">
+                        Si le téléchargement ne démarre pas automatiquement,
+                        cliquez sur le bouton ci-dessus.
+                    </p>
+                `;
+
+                setTimeout(() => {
+
+                    const btn =
+                        document.getElementById("downloadBtn");
+
+                    if (btn) {
+                        btn.click();
+                    }
+
+                }, 1500);
+
+            }
+
+        }
+
+    </script>
+
+</body>
+</html>

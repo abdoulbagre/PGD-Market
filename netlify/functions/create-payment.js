@@ -28,7 +28,7 @@ exports.handler = async (event) => {
       {
         id: 1,
         nom: "Guide Pratique du Marketing avec l’IA",
-        prix: "3000",
+        prix:3000,
         fichier: "Guide Pratique du Marketing avec l’IA.pdf"
       },
 
@@ -50,49 +50,42 @@ exports.handler = async (event) => {
         id:4,
         nom:"2000 (Outils d’Intelligence Artificielle) IA POUR CHANGER VOTRE VIE",
         prix:0,
-        fichier: "",
       },
 
       {
         id:5,
         nom:"GUIDE CANVA PRO GRATUIT A VIE",
         prix:0,
-        fichier: "",
       },
 
       {
         id:6,
         nom:"Stratégies pour Générer du Trafic sur YouTube",
         prix:0,
-        fichier: "",
       },
 
       {
         id:7,
         nom:"Créer une Application Mobile Rentable",
         prix:0,
-        fichier: "",
       },
 
       {
         id:8,
         nom:"Apprendre les bases de la crypto-monnaie et du Trading",
         prix:0,
-        fichier: "",
       },
 
       {
         id:9,
         nom:"Le Grand Livre des Prompts : 1000 PROMPTS pour ChatGPT",
         prix:0,
-        fichier: "",
       },
 
       {
         id:10,
         nom:"Apprendre les bases de la monétisation Facebook – De A à Z",
         prix:0,
-        fichier: "",
       }
       ];
 
@@ -143,7 +136,7 @@ exports.handler = async (event) => {
           description: produit.nom,
 
           return_url: `https://pgd-market.netlify.app/success.html?produitId=${produit.id}`,
-          cancel_url: "https://pgd-market.netlify.app/annule.html",
+          cancel_url: "https://pgd-market.netlify.app/cancel.html",
           callback_url: "https://pgd-market.netlify.app/.netlify/functions/webhook",
 
           customer: {
