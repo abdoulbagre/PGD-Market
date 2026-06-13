@@ -161,10 +161,10 @@ header img {
 .descriptionProduit {
     color: #555;
     text-align: justify;
-    line-height: 1.6;
+    line-height: 1.5;
     width: 100%;
     max-width: 100%;
-    margin: 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
 }
 
 
@@ -474,6 +474,21 @@ p {
     gap: 15px;
     width: 100%;
 }
+
+.descriptionProduit {
+    color: #555;
+    text-align: justify;
+    line-height: 1.5;
+    width: 100%;
+    max-width: 100%;
+    max-height: 250px;
+    overflow: scroll;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    border-radius: 8px;
+    padding: 10px;
+    margin: 0;
+}
+
 
 .checkout{
   width: 100%;
