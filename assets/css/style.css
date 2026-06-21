@@ -108,6 +108,7 @@ header img {
 }
 .prixProduit {
   color: var(--rouge);
+  gap:10px;
 }
 
 
@@ -122,7 +123,7 @@ header img {
     display: grid;
 }
 
-.detailBtn:hover {
+.detailBtn:active {
     transition: 0.3s;
     background-color: #006400;
     color: var(--blanc);
@@ -164,7 +165,6 @@ header img {
     color:#28a745;
     font-weight:bold;
     font-size:14px;
-    margin-bottom:10px;
     animation: bounce 1.5s infinite;
 }
 
@@ -178,11 +178,7 @@ header img {
     color: #555;
     text-align: justify;
     line-height: 1.5;
-    width: 100%;
     max-width: 100%;
-    max-height: 300px;
-    overflow: scroll;
-    box-shadow: inset 0 6px 15px rgba(0, 0, 0, 0.4);
     border-radius: 8px;
     padding: 10px;
     margin: 0;
@@ -482,7 +478,7 @@ p {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    max-height: 100vh;
+    max-width: 100%;
     gap: 20px;
    
 }
@@ -500,11 +496,7 @@ p {
     color: #555;
     text-align: justify;
     line-height: 1.5;
-    width: 100%;
     max-width: 100%;
-    max-height: 220px;
-    overflow: scroll;
-    box-shadow: inset 0 6px 15px rgba(0, 0, 0, 0.4);
     border-radius: 8px;
     padding: 10px;
     margin: 0;
