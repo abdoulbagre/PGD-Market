@@ -15,7 +15,7 @@ document.querySelector(".titreProduit").textContent = p.nom;
 
 document.querySelector(".descriptionProduit").innerHTML = p.description;
 
-document.querySelector(".prixProduit").textContent = (p.prix * 0.3) + " F CFA";
+document.querySelector(".prixProduit").textContent = (p.prix * 0.35) + " F CFA";
 
 document.querySelector(".payerBtn").dataset.nom = p.nom;
 
