@@ -1,5 +1,5 @@
 const params = new URLSearchParams(window.location.search);
-const id = Number(params.get("id"));
+const id = params.get("id");
 
 const p = dataSet.find(x => x.id === id);
 
@@ -15,7 +15,7 @@ document.querySelector(".titreProduit").textContent = p.nom;
 
 document.querySelector(".descriptionProduit").innerHTML = p.description;
 
-document.querySelector(".prixProduit").textContent = p.prix + " F CFA";
+document.querySelector(".prixProduit").textContent = (p.prix * 0.3) + " F CFA";
 
 document.querySelector(".payerBtn").dataset.nom = p.nom;
 

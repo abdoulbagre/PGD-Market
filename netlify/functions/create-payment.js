@@ -25,73 +25,48 @@ exports.handler = async (event) => {
 
     // Produits
     const produits = [
+      
+
       {
-        id: 1,
+        id:"550e8400-e29b-41d4-a716-446655440000",
+        nom:"monétisation TikTok – De A à Z",
+        prix:5000,
+        fichier: ["BONUS Le secret pour transformer tes vidéos en cash.pdf","PLAN 0 A 10K ABONNES EN 30 JOURS.pdf"],
+      },
+
+      {
+        id:"7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90",
         nom: "Guide Pratique du Marketing avec l’IA",
         prix:3000,
         fichier: "Guide Pratique du Marketing avec l’IA.pdf"
       },
 
       {
-        id:2,
-        nom:"Comprendre le marketing sur les réseaux sociaux",
-        prix:0,
-        fichier: "",
-      },
-
-      {
-        id:3,
+        id:"3b12f1df-5232-4e7a-9f2d-8c1a6b5e4d30",
         nom:"Apprendre à rédiger un mémoire universitaire — Licence, Master, Doctorat",
         prix:0,
         fichier: "",
       },
 
       {
-        id:4,
-        nom:"2000 (Outils d’Intelligence Artificielle) IA POUR CHANGER VOTRE VIE",
-        prix:0,
-      },
-
-      {
-        id:5,
+        id:"a8d7c6b5-4e3f-42a1-b9c8-7d6e5f4a3b21",
         nom:"GUIDE CANVA PRO GRATUIT A VIE",
         prix:0,
+        fichier: "",
       },
 
       {
-        id:6,
-        nom:"Stratégies pour Générer du Trafic sur YouTube",
-        prix:0,
-      },
-
-      {
-        id:7,
-        nom:"Créer une Application Mobile Rentable",
-        prix:0,
-      },
-
-      {
-        id:8,
+        id:"91e2d3c4-5f6a-4789-ab01-23456789cdef",
         nom:"Apprendre les bases de la crypto-monnaie et du Trading",
         prix:0,
+        fichier: "",
       },
 
-      {
-        id:9,
-        nom:"Le Grand Livre des Prompts : 1000 PROMPTS pour ChatGPT",
-        prix:0,
-      },
-
-      {
-        id:10,
-        nom:"Apprendre les bases de la monétisation Facebook – De A à Z",
-        prix:0,
-      }
       ];
 
     // Recherche du produit
     const produit = produits.find(
-      (p) => p.id === Number(produitId)
+      (p) => p.id === produitId
     );
 
     if (!produit) {
