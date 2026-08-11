@@ -30,14 +30,14 @@ exports.handler = async (event) => {
       {
         id:"550e8400-e29b-41d4-a716-446655440000",
         nom:"monétisation TikTok – De A à Z",
-        prix:1750,
+        prix:4500,
         fichier: ["BONUS Le secret pour transformer tes vidéos en cash.pdf","PLAN 0 A 10K ABONNES EN 30 JOURS.pdf"],
       },
 
       {
         id:"7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90",
         nom: "Guide Pratique du Marketing avec l’IA",
-        prix:3000,
+        prix:5100,
         fichier: "Guide Pratique du Marketing avec l’IA.pdf"
       },
 

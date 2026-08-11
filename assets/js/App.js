@@ -11,7 +11,7 @@ c.innerHTML+=
       <h3>${p.nom}</h3>
       <p class="prixProduit">
         <span class="old-price">${p.prix} F CFA</span>
-        <span class="new-price">${p.prix * 0.35} F CFA</span>
+        <span class="new-price">${p.prix * 0.6} F CFA</span>
       </p>
       <a class="detailBtn" href="Detail_produit.html?id=${p.id}">voir les détails → </a>
   </div>`})
