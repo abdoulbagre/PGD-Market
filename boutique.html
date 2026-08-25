@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Boutique | PGD Market</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+    <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+
+<body data-page="shop">
+    <header class="site-header" data-header></header>
+    <main class="container page-shell">
+        <section class="page-intro">
+            <p class="eyebrow" data-i18n="shop.eyebrow"></p>
+            <h1 data-i18n="shop.title"></h1>
+            <p data-i18n="shop.description"></p>
+        </section>
+        <section class="shop-toolbar" aria-label="Filtres de boutique" data-i18n-aria-label="shop.search"><label
+                class="search-field"><span data-i18n="shop.search"></span><input id="search" type="search"
+                    data-i18n-placeholder="shop.searchPlaceholder" autocomplete="off"></label><label><span
+                    data-i18n="shop.category"></span><select id="category">
+                    <option value="" data-i18n="shop.allCategories"></option>
+                </select></label><label><span data-i18n="shop.sort"></span><select id="sort">
+                    <option value="default" data-i18n="shop.defaultSort"></option>
+                    <option value="name" data-i18n="shop.sortName"></option>
+                    <option value="price-up" data-i18n="shop.sortPriceUp"></option>
+                    <option value="price-down" data-i18n="shop.sortPriceDown"></option>
+                </select></label></section>
+        <p id="result-count" class="result-count"></p>
+        <div id="shop-products" class="product-grid"></div>
+    </main>
+    <footer class="site-footer" data-footer></footer>
+    <script type="module" src="assets/js/app.js"></script>
+</body>
+
+</html>

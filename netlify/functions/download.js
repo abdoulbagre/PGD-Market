@@ -1,3 +1,6 @@
+const fs = require("fs");
+const path = require("path");
+
 const PRODUCT_CATALOG = [
   {
     id: "550e8400-e29b-41d4-a716-446655440000",
@@ -46,20 +49,37 @@ const getVerifiedPayment = async (paymentId) => {
   return payload?.data || payload || null;
 };
 
+const safeJoinDownloads = (requestedFile) => {
+  const downloadsRoot = path.resolve(__dirname, "..", "..", "assets", "downloads");
+  const candidate = path.basename(String(requestedFile || "").trim());
+  if (!candidate) return null;
+  const fullPath = path.join(downloadsRoot, candidate);
+  const normalizedRoot = path.resolve(downloadsRoot);
+  const normalizedFile = path.resolve(fullPath);
+  if (!normalizedFile.startsWith(normalizedRoot + path.sep) && normalizedFile !== normalizedRoot) {
+    return null;
+  }
+  return normalizedFile;
+};
+
 exports.handler = async (event) => {
   try {
-    const query = event.rawQueryString || (() => {
-      const params = new URLSearchParams(event.queryStringParameters || {});
-      return params.toString();
-    })();
-    const params = new URLSearchParams(query);
-    const paymentId = params.get("paymentId") || event.queryStringParameters?.paymentId || null;
-    const produitId = params.get("produitId") || event.queryStringParameters?.produitId || null;
+    if (event.httpMethod !== "GET") {
+      return {
+        statusCode: 405,
+        body: JSON.stringify({ error: "Méthode non autorisée" })
+      };
+    }
 
-    if (!paymentId || !produitId) {
+    const params = new URLSearchParams(event.rawQueryString || event.queryStringParameters ? (event.rawQueryString || Object.entries(event.queryStringParameters || {}).map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join("&")) : "");
+    const paymentId = params.get("paymentId");
+    const produitId = params.get("produitId");
+    const requestedFile = params.get("file");
+
+    if (!paymentId || !produitId || !requestedFile) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "paymentId et produitId sont requis" })
+        body: JSON.stringify({ error: "paymentId, produitId et file sont requis" })
       };
     }
 
@@ -68,6 +88,15 @@ exports.handler = async (event) => {
       return {
         statusCode: 404,
         body: JSON.stringify({ error: "Produit introuvable" })
+      };
+    }
+
+    const allowedFiles = normalizeProductFiles(product);
+    const fileName = String(requestedFile).trim();
+    if (!allowedFiles.includes(fileName)) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: "Fichier non autorisé pour ce produit" })
       };
     }
 
@@ -95,14 +124,14 @@ exports.handler = async (event) => {
     if (amount !== Number(product.prix)) {
       return {
         statusCode: 403,
-        body: JSON.stringify({ authorized: false, message: "Montant incohérent pour ce produit", expectedAmount: product.prix, receivedAmount: amount })
+        body: JSON.stringify({ authorized: false, message: "Montant incohérent pour ce produit" })
       };
     }
 
     if (currency !== "XOF") {
       return {
         statusCode: 403,
-        body: JSON.stringify({ authorized: false, message: "Devise invalide", expectedCurrency: "XOF", receivedCurrency: currency })
+        body: JSON.stringify({ authorized: false, message: "Devise invalide" })
       };
     }
 
@@ -113,21 +142,30 @@ exports.handler = async (event) => {
       };
     }
 
+    const filePath = safeJoinDownloads(fileName);
+    if (!filePath || !fs.existsSync(filePath)) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: "Fichier introuvable" })
+      };
+    }
+
+    const buffer = fs.readFileSync(filePath);
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        authorized: true,
-        paymentId,
-        produitId,
-        status,
-        files: normalizeProductFiles(product)
-      })
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${path.basename(filePath)}"`,
+        "Cache-Control": "no-store"
+      },
+      isBase64Encoded: true,
+      body: buffer.toString("base64")
     };
   } catch (error) {
-    console.error("CHECK ACCESS ERROR:", error);
+    console.error("DOWNLOAD ERROR:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message || "Erreur de vérification d’accès" })
+      body: JSON.stringify({ error: error.message || "Erreur de téléchargement" })
     };
   }
 };

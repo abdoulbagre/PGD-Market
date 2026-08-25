@@ -1,58 +1,34 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="stylesheet" href="assets/css/style.css">
-  <title>Commande</title>
-
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Commande | PGD Market</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+    <link rel="stylesheet" href="assets/css/responsive.css">
 </head>
-<body>
 
-  <div class="checkout">
-
-
-
-    <!-- RÉSUMÉ -->
-    <div class="summary-box">
-
-    <h2>Votre commande</h2>
-
-      <section class="detail-produit">
-        <img style="width: 300px;" class="image-Produit">
-        <div class="info-Produit">
-            <h2 class="titreProduit"></h2>
-            <p class="descriptionProduit" style="display: none;"></p>
-            <div class="price-contain">
-              Net à Payer: <h3 class="prixProduit"></h3>
-            </div>
+<body data-page="checkout">
+    <header class="site-header" data-header></header>
+    <main class="container page-shell"><a class="back-link" href="boutique.html" data-i18n="checkout.back"></a>
+        <div class="checkout-layout">
+            <section id="checkout-summary" class="summary-panel"></section>
+            <form id="checkout-form" class="form-panel" novalidate>
+                <p class="eyebrow" data-i18n="checkout.eyebrow"></p>
+                <h1 data-i18n="checkout.title"></h1>
+                <p class="muted" data-i18n="checkout.privacy"></p><label><span data-i18n="checkout.name"></span><input
+                        id="nom" name="nom" autocomplete="name" required></label><label><span
+                        data-i18n="checkout.email"></span><input id="email" name="email" type="email"
+                        autocomplete="email" required></label><button class="button button-primary" type="submit"><span
+                        data-i18n="checkout.pay"></span> <span aria-hidden="true">→</span></button>
+                <p id="payment-message" class="form-message" role="alert" aria-live="polite"></p>
+            </form>
         </div>
-      </section> 
-
-    </div>
-
-    <!-- FORMULAIRE -->
-    <form class="form-box">
-
-      <h2>Informations client</h2>
-
-      <div class="input-group">
-        <label>Nom complet</label>
-        <input type="text" id="nom" autocomplete="name" required >
-      </div>
-
-      <div class="input-group">
-        <label>Email</label>
-        <input type="email" id="email" autocomplete="email" required >
-      </div>
-      <button type="submit" class="payerBtn">Payer</button>
-    </form>
-
-
-  </div>
-<script defer src="assets/js/Data.js"></script>
-<script defer src="assets/js/Select.js"></script>
-<script defer src="assets/js/paiement.js"></script>
-
+    </main>
+    <footer class="site-footer" data-footer></footer>
+    <script type="module" src="assets/js/app.js"></script>
 </body>
+
 </html>
