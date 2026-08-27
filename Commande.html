@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Commande | PGD Market</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+    <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+
+<body data-page="checkout">
+    <header class="site-header" data-header></header>
+    <main class="container page-shell"><a class="back-link" href="boutique.html" data-i18n="checkout.back"></a>
+        <div class="checkout-layout">
+            <section id="checkout-summary" class="summary-panel"></section>
+            <form id="checkout-form" class="form-panel" novalidate>
+                <p class="eyebrow" data-i18n="checkout.eyebrow"></p>
+                <h1 data-i18n="checkout.title"></h1>
+                <p class="muted" data-i18n="checkout.privacy"></p><label><span data-i18n="checkout.name"></span><input
+                        id="nom" name="nom" autocomplete="name" required></label><label><span
+                        data-i18n="checkout.email"></span><input id="email" name="email" type="email"
+                        autocomplete="email" required></label><button class="button button-primary" type="submit"><span
+                        data-i18n="checkout.pay"></span> <span aria-hidden="true">→</span></button>
+                <p id="payment-message" class="form-message" role="alert" aria-live="polite"></p>
+            </form>
+        </div>
+    </main>
+    <footer class="site-footer" data-footer></footer>
+    <script type="module" src="assets/js/app.js"></script>
+</body>
+
+</html>
