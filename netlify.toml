@@ -1,3 +1,7 @@
 [build]
-  publish = "."
+  publish = "public"
   functions = "netlify/functions"
+
+[functions]
+  directory = "netlify/functions"
+  included_files = ["private-downloads/**"]
