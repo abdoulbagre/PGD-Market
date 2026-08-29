@@ -1,1 +1,142 @@
-{"siteName":"PGD Market","titles":{"home":"PGD Market","shop":"Boutique | PGD Market","product":"Produit | PGD Market","checkout":"Commande | PGD Market","cart":"Panier | PGD Market","contact":"Contact | PGD Market","legal":"Mentions légales | PGD Market","privacy":"Confidentialité | PGD Market"},"navigation":{"home":"Accueil","shop":"Boutique","cart":"Panier","contact":"Contact","menu":"Menu","language":"Langue"},"language":{"french":"🇫🇷 Français","english":"🇬🇧 English"},"home":{"eyebrow":"Bibliothèque numérique PGD","title":"Des ressources utiles pour passer à l’action.","description":"Découvrez des guides numériques sélectionnés pour apprendre, créer et développer vos projets.","cta":"Découvrir la boutique","viewProducts":"Voir les produits","sectionEyebrow":"À découvrir","sectionTitle":"Nos ressources","viewAll":"Voir toute la boutique →","trustDigital":"Accès numérique","trustDigitalText":"Les fichiers disponibles sont accessibles après achat.","trustPayment":"Paiement sécurisé","trustPaymentText":"Le paiement est traité par le prestataire configuré.","trustSupport":"Support client","trustSupportText":"Une question ? Écrivez-nous directement.","faqEyebrow":"Besoin de savoir","faqTitle":"Questions fréquentes","faqBuy":"Comment acheter un produit ?","faqBuyText":"Ouvrez sa fiche, puis complétez le formulaire de commande avec votre nom et votre adresse email.","faqDelivery":"Quand recevrai-je mon produit ?","faqDeliveryText":"Les produits disponibles sont numériques. Après validation du paiement, la page de résultat permet d’accéder au téléchargement.","faqContact":"Comment contacter PGD Market ?","faqContactText":"Notre équipe est joignable via la page contact."},"shop":{"eyebrow":"La bibliothèque PGD","title":"La boutique","description":"Des ressources numériques pour apprendre à votre rythme.","search":"Rechercher","searchPlaceholder":"Nom du produit","category":"Catégorie","allCategories":"Toutes","sort":"Trier","defaultSort":"Par défaut","sortName":"Nom","sortPriceUp":"Prix croissant","sortPriceDown":"Prix décroissant","resultOne":"produit","resultMany":"produits","filters":"Filtres de boutique"},"product":{"back":"← Retour à la boutique","available":"Disponible","comingSoon":"Bientôt disponible","unavailable":"Produit indisponible","view":"Voir le produit","add":"Ajouter au panier","added":"Ajouté au panier","order":"Commander maintenant","notFound":"Produit introuvable"},"checkout":{"back":"← Retour à la boutique","eyebrow":"Finaliser","title":"Vos informations","privacy":"Elles sont transmises uniquement pour traiter votre commande.","summary":"Votre commande","name":"Nom complet","email":"Adresse email","nameRequired":"Veuillez saisir votre nom.","emailInvalid":"Veuillez saisir une adresse email valide.","pay":"Continuer vers le paiement","unavailableTitle":"Produit indisponible","unavailableText":"Ce produit ne peut pas être commandé actuellement.","preparing":"Préparation du paiement...","paymentFailed":"Le paiement n’a pas pu être préparé.","paymentLinkMissing":"Lien de paiement introuvable.","unknownError":"Une erreur est survenue. Veuillez réessayer."},"cart":{"eyebrow":"Votre sélection","title":"Panier","empty":"Votre panier est vide.","remove":"Retirer","clear":"Vider le panier","subtotal":"Sous-total","total":"Total","checkout":"Passer la commande","discover":"Découvrir la boutique","added":"Produit ajouté au panier.","alreadyAdded":"Ce produit est déjà dans votre panier.","groupUnavailable":"Le paiement groupé n’est pas disponible avec le service actuel. Commandez chaque produit séparément.","singleCheckout":"Commander ce produit"},"contact":{"eyebrow":"Nous contacter","title":"Parlons de votre projet.","description":"Pour toute question, vous pouvez nous contacter sur WhatsApp. Nous répondons généralement sous 24 à 48 heures.","whatsapp":"Écrire sur WhatsApp →"},"legal":{"eyebrow":"Informations","title":"Mentions légales","siteName":"Nom du site :","address":"Adresse :","siteValue":"PGD-Biblio","addressValue":"BURKINA FASO"},"privacy":{"eyebrow":"Vos données","title":"Politique de confidentialité","intro":"Nous respectons la confidentialité de nos utilisateurs et protégeons leurs données.","collection":"Le nom, l’email et les informations de transaction peuvent être nécessaires au traitement des commandes et paiements. Ces données sont utilisées pour le fonctionnement du service et la gestion des achats.","payments":"Les paiements sont traités de manière sécurisée via des services tiers. Nous ne stockons pas vos informations bancaires.","sharing":"Nous ne vendons, n’échangeons et ne partageons pas vos données personnelles à des fins commerciales."},"footer":{"description":"Une bibliothèque de ressources numériques sélectionnées.","information":"Informations","privacy":"Confidentialité","copyright":"© 2026 PGD Market"},"errors":{"productUnavailable":"Ce produit n’est actuellement pas disponible.","unknown":"Une erreur est survenue. Veuillez réessayer."}}
+{
+    "siteName": "PGD DIGITAL",
+    "titles": {
+        "home": "PGD DIGITAL",
+        "shop": "Boutique | PGD DIGITAL",
+        "product": "Produit | PGD DIGITAL",
+        "checkout": "Commande | PGD DIGITAL",
+        "cart": "Panier | PGD DIGITAL",
+        "contact": "Contact | PGD DIGITAL",
+        "legal": "Mentions légales | PGD DIGITAL",
+        "privacy": "Confidentialité | PGD DIGITAL"
+    },
+    "navigation": {
+        "home": "Accueil",
+        "shop": "Boutique",
+        "cart": "Panier",
+        "contact": "Contact",
+        "menu": "Menu",
+        "language": "Langue"
+    },
+    "language": {
+        "french": "🇫🇷 Français",
+        "english": "🇬🇧 English"
+    },
+    "home": {
+        "eyebrow": "Bibliothèque numérique PGD",
+        "title": "Des ressources utiles pour passer à l’action.",
+        "description": "Découvrez des guides numériques sélectionnés pour apprendre, créer et développer vos projets.",
+        "cta": "Découvrir la boutique",
+        "viewProducts": "Voir les produits",
+        "sectionEyebrow": "À découvrir",
+        "sectionTitle": "Nos ressources",
+        "viewAll": "Voir toute la boutique →",
+        "trustDigital": "Accès numérique",
+        "trustDigitalText": "Les fichiers disponibles sont accessibles après achat.",
+        "trustPayment": "Paiement sécurisé",
+        "trustPaymentText": "Le paiement est traité par le prestataire configuré.",
+        "trustSupport": "Support client",
+        "trustSupportText": "Une question ? Écrivez-nous directement.",
+        "faqEyebrow": "Besoin de savoir",
+        "faqTitle": "Questions fréquentes",
+        "faqBuy": "Comment acheter un produit ?",
+        "faqBuyText": "Ouvrez sa fiche, puis complétez le formulaire de commande avec votre nom et votre adresse email.",
+        "faqDelivery": "Quand recevrai-je mon produit ?",
+        "faqDeliveryText": "Les produits disponibles sont numériques. Après validation du paiement, la page de résultat permet d’accéder au téléchargement.",
+        "faqContact": "Comment contacter PGD DIGITAL ?",
+        "faqContactText": "Notre équipe est joignable via la page contact."
+    },
+    "shop": {
+        "eyebrow": "La bibliothèque PGD",
+        "title": "La boutique",
+        "description": "Des ressources numériques pour apprendre à votre rythme.",
+        "search": "Rechercher",
+        "searchPlaceholder": "Nom du produit",
+        "category": "Catégorie",
+        "allCategories": "Toutes",
+        "sort": "Trier",
+        "defaultSort": "Par défaut",
+        "sortName": "Nom",
+        "sortPriceUp": "Prix croissant",
+        "sortPriceDown": "Prix décroissant",
+        "resultOne": "produit",
+        "resultMany": "produits",
+        "filters": "Filtres de boutique"
+    },
+    "product": {
+        "back": "← Retour à la boutique",
+        "available": "Disponible",
+        "comingSoon": "Bientôt disponible",
+        "unavailable": "Produit indisponible",
+        "view": "Voir le produit",
+        "add": "Ajouter au panier",
+        "added": "Ajouté au panier",
+        "order": "Commander maintenant",
+        "notFound": "Produit introuvable"
+    },
+    "checkout": {
+        "back": "← Retour à la boutique",
+        "eyebrow": "Finaliser",
+        "title": "Vos informations",
+        "privacy": "Elles sont transmises uniquement pour traiter votre commande.",
+        "summary": "Votre commande",
+        "name": "Nom complet",
+        "email": "Adresse email",
+        "nameRequired": "Veuillez saisir votre nom.",
+        "emailInvalid": "Veuillez saisir une adresse email valide.",
+        "pay": "Continuer vers le paiement",
+        "unavailableTitle": "Produit indisponible",
+        "unavailableText": "Ce produit ne peut pas être commandé actuellement.",
+        "preparing": "Préparation du paiement...",
+        "paymentFailed": "Le paiement n’a pas pu être préparé.",
+        "paymentLinkMissing": "Lien de paiement introuvable.",
+        "unknownError": "Une erreur est survenue. Veuillez réessayer."
+    },
+    "cart": {
+        "eyebrow": "Votre sélection",
+        "title": "Panier",
+        "empty": "Votre panier est vide.",
+        "remove": "Retirer",
+        "clear": "Vider le panier",
+        "subtotal": "Sous-total",
+        "total": "Total",
+        "checkout": "Passer la commande",
+        "discover": "Découvrir la boutique",
+        "added": "Produit ajouté au panier.",
+        "alreadyAdded": "Ce produit est déjà dans votre panier.",
+        "groupUnavailable": "Le paiement groupé n’est pas disponible avec le service actuel. Commandez chaque produit séparément.",
+        "singleCheckout": "Commander ce produit"
+    },
+    "contact": {
+        "eyebrow": "Nous contacter",
+        "title": "Parlons de votre projet.",
+        "description": "Pour toute question, vous pouvez nous contacter sur WhatsApp. Nous répondons généralement sous 24 à 48 heures.",
+        "whatsapp": "Écrire sur WhatsApp →"
+    },
+    "legal": {
+        "eyebrow": "Informations",
+        "title": "Mentions légales",
+        "siteName": "Nom du site :",
+        "address": "Adresse :",
+        "siteValue": "PGD DIGITAL",
+        "addressValue": "BURKINA FASO"
+    },
+    "privacy": {
+        "eyebrow": "Vos données",
+        "title": "Politique de confidentialité",
+        "intro": "Nous respectons la confidentialité de nos utilisateurs et protégeons leurs données.",
+        "collection": "Le nom, l’email et les informations de transaction peuvent être nécessaires au traitement des commandes et paiements. Ces données sont utilisées pour le fonctionnement du service et la gestion des achats.",
+        "payments": "Les paiements sont traités de manière sécurisée via des services tiers. Nous ne stockons pas vos informations bancaires.",
+        "sharing": "Nous ne vendons, n’échangeons et ne partageons pas vos données personnelles à des fins commerciales."
+    },
+    "footer": {
+        "description": "Une bibliothèque de ressources numériques sélectionnées.",
+        "information": "Informations",
+        "privacy": "Confidentialité",
+        "copyright": "© 2026 PGD DIGITAL. Tous droits réservés."
+    },
+    "errors": {
+        "productUnavailable": "Ce produit n’est actuellement pas disponible.",
+        "unknown": "Une erreur est survenue. Veuillez réessayer."
+    }
+}
