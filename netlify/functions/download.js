@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { findProduct } = require("./_products");
 const { isPaymentForProduct, verifyPayment } = require("./_moneroo");
+const { personalizePdfBuffer } = require("./pdf-personalizer");
 
 const jsonResponse = (statusCode, body) => ({
   statusCode,
@@ -22,6 +23,8 @@ const getPrivateFilePath = (fileName) => {
   }
   return filePath;
 };
+
+const isPdfFile = (fileName) => String(fileName || "").toLowerCase().endsWith(".pdf");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "GET") {
@@ -61,16 +64,41 @@ exports.handler = async (event) => {
     }
 
     const buffer = fs.readFileSync(filePath);
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${path.basename(filePath)}"`,
-        "Cache-Control": "no-store"
-      },
-      isBase64Encoded: true,
-      body: buffer.toString("base64")
-    };
+    if (!isPdfFile(fileName)) {
+      return {
+        statusCode: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${path.basename(filePath)}"`,
+          "Cache-Control": "no-store"
+        },
+        isBase64Encoded: true,
+        body: buffer.toString("base64")
+      };
+    }
+
+    try {
+      const personalizedBuffer = await personalizePdfBuffer(buffer, payment, paymentId);
+      return {
+        statusCode: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${path.basename(filePath)}"`,
+          "Cache-Control": "no-store"
+        },
+        isBase64Encoded: true,
+        body: personalizedBuffer.toString("base64")
+      };
+    } catch (personalizationError) {
+      console.error("PDF PERSONALIZATION ERROR:", {
+        status: 422,
+        message: personalizationError.message || "Erreur de personnalisation du PDF"
+      });
+      return jsonResponse(422, {
+        authorized: false,
+        message: "Impossible de personnaliser le PDF : informations de paiement incomplètes."
+      });
+    }
   } catch (error) {
     console.error("DOWNLOAD ERROR:", {
       status: error.statusCode || 500,
