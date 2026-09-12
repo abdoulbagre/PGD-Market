@@ -162,14 +162,19 @@
     outline: 2px solid rgba(20, 125, 104, .18)
 }
 
-.language-control {
+.language-control,
+.checkout-currency-control,
+.product-currency-control {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: .72rem
+    font-size: .72rem;
+    position: relative
 }
 
-.language-control span {
+.language-control > span,
+.checkout-currency-control > .currency-picker-label,
+.product-currency-control > .currency-picker-label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -185,11 +190,122 @@
     font-size: .75rem
 }
 
+.checkout-currency-control {
+    display: grid;
+    gap: 7px;
+    font: 700 .76rem Arial, sans-serif
+}
+
+.product-currency-control {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin: 0;
+    max-width: 100%;
+    font: 700 .68rem Arial, sans-serif
+}
+
+.currency-picker-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 32px;
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--paper);
+    color: var(--accent-dark);
+    cursor: pointer;
+    font: inherit;
+    white-space: nowrap;
+    transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease
+}
+
+.checkout-currency-control .currency-picker-trigger {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 8px;
+    background: #fff
+}
+
+.currency-picker-trigger:hover {
+    border-color: var(--accent);
+    background: #fff
+}
+
+.currency-picker-trigger:focus-visible,
+.currency-option:focus-visible {
+    border-color: var(--accent);
+    outline: 3px solid var(--warm);
+    outline-offset: 2px
+}
+
+.currency-picker-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 10;
+    display: grid;
+    min-width: 150px;
+    padding: 5px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(23, 34, 45, .14)
+}
+
+.currency-picker-menu[hidden] {
+    display: none
+}
+
+.currency-picker-menu.is-open-up {
+    top: auto;
+    bottom: calc(100% + 6px)
+}
+
+.checkout-currency-control .currency-picker-menu {
+    width: 100%
+}
+
+.currency-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 9px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    font: 700 .75rem Arial, sans-serif;
+    text-align: left
+}
+
+.currency-option:hover,
+.currency-option[aria-selected="true"] {
+    background: var(--paper);
+    color: var(--accent-dark)
+}
+
 .product-actions,
 .cart-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 10px
+}
+
+.product-actions {
+    margin-top: 12px;
+    min-width: 0;
+    width: 100%
+}
+
+.product-actions .button {
+    min-height: 40px;
+    border-radius: 6px;
+    flex: 1 1 120px;
+    min-width: 0
 }
 
 .cart-items {

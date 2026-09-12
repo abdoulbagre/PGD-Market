@@ -125,15 +125,26 @@ async function personalizePdfBuffer(pdfBuffer, payment, fallbackPaymentId = "") 
     const { width, height } = page.getSize();
     const centerX = width / 2;
     const centerY = height / 2;
+    const watermarkSize = 18;
+    const watermarkAngle = 45;
+    const watermarkWidth = font.widthOfTextAtSize(watermarkText, watermarkSize);
+    const watermarkHeight = font.heightAtSize(watermarkSize);
+    const angleRadians = (watermarkAngle * Math.PI) / 180;
+    const watermarkX = centerX - (
+      watermarkWidth * Math.cos(angleRadians) + watermarkHeight * Math.sin(angleRadians)
+    ) / 2;
+    const watermarkY = centerY - (
+      watermarkWidth * Math.sin(angleRadians) + watermarkHeight * Math.cos(angleRadians)
+    ) / 2;
 
     page.drawText(watermarkText, {
-      x: centerX - 180,
-      y: centerY - 10,
-      size: 16,
+      x: watermarkX,
+      y: watermarkY,
+      size: watermarkSize,
       font,
       color: subtleGray,
       opacity: 0.38,
-      rotate: degrees(45)
+      rotate: degrees(watermarkAngle)
     });
 
     const footerPrefix = `Acheté par : ${fullName} | Réf. commande : ${reference} | `;

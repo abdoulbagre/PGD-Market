@@ -26,6 +26,17 @@ const getPrivateFilePath = (fileName) => {
 
 const isPdfFile = (fileName) => String(fileName || "").toLowerCase().endsWith(".pdf");
 
+const getMimeType = (fileName) => {
+  switch (path.extname(String(fileName || "")).toLowerCase()) {
+    case ".pdf":
+      return "application/pdf";
+    case ".mp4":
+      return "video/mp4";
+    default:
+      return "application/octet-stream";
+  }
+};
+
 exports.handler = async (event) => {
   if (event.httpMethod !== "GET") {
     return jsonResponse(405, { error: "Méthode non autorisée" });
@@ -64,12 +75,18 @@ exports.handler = async (event) => {
     }
 
     const buffer = fs.readFileSync(filePath);
+    const downloadFileName = path.basename(filePath);
+    const asciiFileName = downloadFileName
+      .normalize("NFKD")
+      .replace(/[^\x20-\x7E]/g, "")
+      .replace(/["\\]/g, "_");
+    const contentDisposition = `attachment; filename="${asciiFileName}"; filename*=UTF-8''${encodeURIComponent(downloadFileName).replace(/'/g, "%27")}`;
     if (!isPdfFile(fileName)) {
       return {
         statusCode: 200,
         headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${path.basename(filePath)}"`,
+          "Content-Type": getMimeType(fileName),
+          "Content-Disposition": contentDisposition,
           "Cache-Control": "no-store"
         },
         isBase64Encoded: true,
@@ -83,7 +100,7 @@ exports.handler = async (event) => {
         statusCode: 200,
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${path.basename(filePath)}"`,
+          "Content-Disposition": contentDisposition,
           "Cache-Control": "no-store"
         },
         isBase64Encoded: true,

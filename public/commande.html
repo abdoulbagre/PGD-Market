@@ -18,7 +18,7 @@
             <form id="checkout-form" class="form-panel" novalidate>
                 <p class="eyebrow" data-i18n="checkout.eyebrow"></p>
                 <h1 data-i18n="checkout.title"></h1>
-                <p class="muted" data-i18n="checkout.privacy"></p><label><span data-i18n="checkout.name"></span><input
+                <p class="muted" data-i18n="checkout.privacy"></p><div class="checkout-currency-control" data-checkout-currency-picker data-currency-picker-root><span class="currency-picker-label" data-i18n="checkout.currency"></span><button class="currency-picker-trigger" type="button" data-currency-trigger aria-expanded="false" aria-haspopup="listbox"><span data-currency-flag aria-hidden="true"></span><span data-currency-label></span><span class="currency-picker-chevron" aria-hidden="true">⌄</span></button><div class="currency-picker-menu" data-currency-menu role="listbox" hidden><button class="currency-option" type="button" role="option" data-currency-option="XOF"><span>Franc CFA</span></button><button class="currency-option" type="button" role="option" data-currency-option="EUR"><span aria-hidden="true">🇫🇷</span><span>Euro</span></button><button class="currency-option" type="button" role="option" data-currency-option="USD"><span aria-hidden="true">🇺🇸</span><span>Dollar</span></button></div></div><label><span data-i18n="checkout.name"></span><input
                         id="nom" name="nom" autocomplete="name" required></label><label><span
                         data-i18n="checkout.email"></span><input id="email" name="email" type="email"
                         autocomplete="email" required></label><button class="button button-primary" type="submit"><span

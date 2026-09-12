@@ -7,6 +7,9 @@
     --accent: #147d68;
     --accent-dark: #0e5c4e;
     --warm: #e7a34b;
+    --violet: #7657a8;
+    --blue: #4f83b5;
+    --orange: #d97a4a;
     --max: 1240px
 }
 
@@ -111,7 +114,45 @@ select {
 .hero {
     display: grid;
     gap: 28px;
-    padding-block: 64px 52px
+    padding-block: 64px 52px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden
+}
+
+.hero::before,
+.hero::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(1px);
+    opacity: .28;
+    animation: drift 18s ease-in-out infinite alternate
+}
+
+.hero > * {
+    position: relative;
+    z-index: 1
+}
+
+.hero::before {
+    width: 180px;
+    height: 180px;
+    top: 18px;
+    right: 11%;
+    background: var(--violet);
+    box-shadow: -120px 105px 0 -48px var(--blue), 145px 150px 0 -68px var(--orange)
+}
+
+.hero::after {
+    width: 110px;
+    height: 110px;
+    bottom: 18px;
+    left: 4%;
+    background: var(--warm);
+    box-shadow: 120px -54px 0 -38px var(--accent)
 }
 
 .eyebrow {
@@ -149,7 +190,23 @@ select {
     justify-content: center;
     padding: 32px;
     letter-spacing: 5px;
-    font-size: 1.5rem
+    font-size: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 18px 36px rgba(23, 34, 45, .12)
+}
+
+.hero-panel::after {
+    content: "";
+    position: absolute;
+    width: 190px;
+    height: 190px;
+    right: -78px;
+    bottom: -92px;
+    border: 1px solid rgba(231, 163, 75, .58);
+    border-radius: 50%;
+    box-shadow: 0 0 0 18px rgba(79, 131, 181, .12), 0 0 0 42px rgba(118, 87, 168, .1);
+    animation: orbit 22s linear infinite
 }
 
 .hero-mark {
@@ -186,14 +243,27 @@ select {
 .product-card {
     background: #fff;
     border: 1px solid var(--line);
+    border-radius: 12px;
     display: flex;
     flex-direction: column;
-    min-width: 0
+    min-width: 0;
+    transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease
+}
+
+.product-card:has(.currency-picker-menu:not([hidden])) {
+    z-index: 30
+}
+
+.product-card:hover {
+    transform: translateY(-4px);
+    border-color: #cbd8d2;
+    box-shadow: 0 12px 26px rgba(23, 34, 45, .1)
 }
 
 .product-image {
     display: block;
     aspect-ratio: 1.45;
+    border-radius: 11px 11px 0 0;
     overflow: hidden;
     background: #e8eeea
 }
@@ -202,14 +272,20 @@ select {
 .product-visual img {
     width: 100%;
     height: 100%;
-    object-fit: cover
+    object-fit: cover;
+    transition: transform .45s cubic-bezier(.2, .65, .3, 1)
+}
+
+.product-card:hover .product-image img {
+    transform: scale(1.035)
 }
 
 .product-card-body {
     padding: 18px;
     display: flex;
     flex-direction: column;
-    flex: 1
+    flex: 1;
+    min-height: 248px
 }
 
 .availability {
@@ -235,15 +311,21 @@ select {
     color: var(--muted);
     font-family: Arial, sans-serif;
     font-size: .86rem;
-    flex: 1
+    flex: 1;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden
 }
 
 .product-card-footer {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-top: 16px
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    margin-top: 18px
 }
 
 .button {
@@ -256,7 +338,18 @@ select {
     padding: 13px 18px;
     font-family: Arial, sans-serif;
     font-size: .8rem;
-    font-weight: 700
+    font-weight: 700;
+    transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease, color .2s ease
+}
+
+.button:not(:disabled):not(.button-disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 14px rgba(23, 34, 45, .14)
+}
+
+.button:not(:disabled):not(.button-disabled):active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 5px rgba(23, 34, 45, .12)
 }
 
 .button-primary {
@@ -522,18 +615,50 @@ select {
 }
 
 .reveal {
-    animation: rise .5s ease both
+    animation: rise .65s cubic-bezier(.22, .75, .25, 1) both
+}
+
+.hero-copy {
+    animation-delay: .08s
+}
+
+.hero-panel {
+    animation-delay: .2s
+}
+
+#featured-products .product-card:nth-child(2) {
+    animation-delay: .12s
+}
+
+#featured-products .product-card:nth-child(3) {
+    animation-delay: .24s
 }
 
 @keyframes rise {
     from {
         opacity: 0;
-        transform: translateY(10px)
+        transform: translateY(16px)
     }
 
     to {
         opacity: 1;
         transform: none
+    }
+}
+
+@keyframes drift {
+    from {
+        transform: translate3d(-8px, 5px, 0) rotate(-2deg)
+    }
+
+    to {
+        transform: translate3d(10px, -8px, 0) rotate(3deg)
+    }
+}
+
+@keyframes orbit {
+    to {
+        transform: rotate(360deg)
     }
 }
 
@@ -549,5 +674,17 @@ select {
 
     .reveal {
         animation: none
+    }
+
+    .hero::before,
+    .hero::after,
+    .hero-panel::after {
+        animation: none
+    }
+
+    .product-card,
+    .product-image img,
+    .button {
+        transition: none
     }
 }
