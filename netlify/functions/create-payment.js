@@ -1,4 +1,5 @@
 const { findProduct } = require("./_products");
+const { getExpectedAmount, normalizeCurrency } = require("./_moneroo");
 
 const getBaseUrl = () =>
   process.env.URL || process.env.DEPLOY_URL || process.env.NETLIFY_URL || "http://localhost:8888";
@@ -24,8 +25,9 @@ exports.handler = async (event) => {
   const nom = typeof payload.nom === "string" ? payload.nom.trim() : "";
   const email = typeof payload.email === "string" ? payload.email.trim() : "";
   const produitId = typeof payload.produitId === "string" ? payload.produitId.trim() : "";
+  const currency = normalizeCurrency(payload.currency);
 
-  if (!nom || !email || !produitId) {
+  if (!nom || !email || !produitId || !currency) {
     return jsonResponse(400, { error: "Nom, email ou produit manquant." });
   }
 
@@ -46,6 +48,7 @@ exports.handler = async (event) => {
   const firstName = nameParts.shift() || "Client";
   const lastName = nameParts.join(" ") || "Client";
   const baseUrl = getBaseUrl();
+  const amount = getExpectedAmount(produit, currency);
 
   try {
     const response = await fetch("https://api.moneroo.io/v1/payments/initialize", {
@@ -56,8 +59,8 @@ exports.handler = async (event) => {
         Authorization: `Bearer ${process.env.MONEROO_SECRET_KEY}`
       },
       body: JSON.stringify({
-        amount: produit.prix,
-        currency: "XOF",
+        amount,
+        currency,
         description: produit.nom,
         return_url: `${baseUrl}/success.html?produitId=${encodeURIComponent(produit.id)}`,
         customer: {
@@ -68,8 +71,8 @@ exports.handler = async (event) => {
         metadata: {
           produitId: String(produit.id),
           produitNom: String(produit.nom),
-          amount: String(produit.prix),
-          currency: "XOF"
+          amount: String(amount),
+          currency
         }
       })
     });
