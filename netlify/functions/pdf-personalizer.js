@@ -125,7 +125,7 @@ async function personalizePdfBuffer(pdfBuffer, payment, fallbackPaymentId = "") 
     const { width, height } = page.getSize();
     const centerX = width / 2;
     const centerY = height / 2;
-    const watermarkSize = 18;
+    const watermarkSize = 20;
     const watermarkAngle = 45;
     const watermarkWidth = font.widthOfTextAtSize(watermarkText, watermarkSize);
     const watermarkHeight = font.heightAtSize(watermarkSize);
@@ -150,12 +150,12 @@ async function personalizePdfBuffer(pdfBuffer, payment, fallbackPaymentId = "") 
     const footerPrefix = `Acheté par : ${fullName} | Réf. commande : ${reference} | `;
     const footerTextX = 24;
     const footerTextY = 18;
-    const prefixWidth = font.widthOfTextAtSize(footerPrefix, 9);
+    const prefixWidth = font.widthOfTextAtSize(footerPrefix, 10);
 
     page.drawText(footerPrefix, {
       x: footerTextX,
       y: footerTextY,
-      size: 9,
+      size: 10,
       font,
       color: darkGray
     });
@@ -163,7 +163,7 @@ async function personalizePdfBuffer(pdfBuffer, payment, fallbackPaymentId = "") 
     page.drawText("PGD", {
       x: footerTextX + prefixWidth + 4,
       y: footerTextY,
-      size: 9,
+      size: 10,
       font,
       color: gold
     });

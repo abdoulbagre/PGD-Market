@@ -4,6 +4,15 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,follow">
+    <meta name="description" content="Finalisez votre commande PGD Market et accédez au paiement sécurisé pour récupérer votre guide numérique.">
+    <link rel="canonical" href="https://pgd-market.netlify.app/commande.html">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Commande | PGD Market">
+    <meta property="og:description" content="Paiement sécurisé et accès immédiat aux ressources achetées.">
+    <meta property="og:url" content="https://pgd-market.netlify.app/commande.html">
+    <meta property="og:image" content="https://pgd-market.netlify.app/assets/Background/logo.png">
+    <meta name="twitter:card" content="summary_large_image">
     <title>Commande | PGD DIGITAL</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/components.css">
@@ -16,14 +25,14 @@
         <div class="checkout-layout">
             <section id="checkout-summary" class="summary-panel"></section>
             <form id="checkout-form" class="form-panel" novalidate>
-                <p class="eyebrow" data-i18n="checkout.eyebrow"></p>
-                <h1 data-i18n="checkout.title"></h1>
-                <p class="muted" data-i18n="checkout.privacy"></p><div class="checkout-currency-control" data-checkout-currency-picker data-currency-picker-root><span class="currency-picker-label" data-i18n="checkout.currency"></span><button class="currency-picker-trigger" type="button" data-currency-trigger aria-expanded="false" aria-haspopup="listbox"><span data-currency-flag aria-hidden="true"></span><span data-currency-label></span><span class="currency-picker-chevron" aria-hidden="true">⌄</span></button><div class="currency-picker-menu" data-currency-menu role="listbox" hidden><button class="currency-option" type="button" role="option" data-currency-option="XOF"><span>Franc CFA</span></button><button class="currency-option" type="button" role="option" data-currency-option="EUR"><span aria-hidden="true">🇫🇷</span><span>Euro</span></button><button class="currency-option" type="button" role="option" data-currency-option="USD"><span aria-hidden="true">🇺🇸</span><span>Dollar</span></button></div></div><label><span data-i18n="checkout.name"></span><input
-                        id="nom" name="nom" autocomplete="name" required></label><label><span
-                        data-i18n="checkout.email"></span><input id="email" name="email" type="email"
-                        autocomplete="email" required></label><button class="button button-primary" type="submit"><span
-                        data-i18n="checkout.pay"></span> <span aria-hidden="true">→</span></button>
-                <p id="payment-message" class="form-message" role="alert" aria-live="polite"></p>
+                <p class="eyebrow checkout-animate checkout-delay-1" data-i18n="checkout.eyebrow"></p>
+                <h1 class="checkout-animate checkout-delay-2" data-i18n="checkout.title"></h1>
+                <p class="muted checkout-animate checkout-delay-3" data-i18n="checkout.privacy"></p>
+                <div class="checkout-currency-control checkout-animate checkout-delay-4" data-checkout-currency-picker data-currency-picker-root><span class="currency-picker-label" data-i18n="checkout.currency"></span><button class="currency-picker-trigger" type="button" data-currency-trigger aria-expanded="false" aria-haspopup="listbox"><span data-currency-flag aria-hidden="true"></span><span data-currency-label></span><span class="currency-picker-chevron" aria-hidden="true">⌄</span></button><div class="currency-picker-menu" data-currency-menu role="listbox" hidden><button class="currency-option" type="button" role="option" data-currency-option="XOF"><span>Franc CFA</span></button><button class="currency-option" type="button" role="option" data-currency-option="EUR"><span aria-hidden="true">🇫🇷</span><span>Euro</span></button><button class="currency-option" type="button" role="option" data-currency-option="USD"><span aria-hidden="true">🇺🇸</span><span>Dollar</span></button></div></div>
+                <label class="checkout-animate checkout-delay-5"><span data-i18n="checkout.name"></span><input id="nom" name="nom" autocomplete="name" required></label>
+                <label class="checkout-animate checkout-delay-6"><span data-i18n="checkout.email"></span><input id="email" name="email" type="email" autocomplete="email" required></label>
+                <button class="button button-primary checkout-animate checkout-delay-7" type="submit"><span class="checkout-button-content"><span class="button-text-animate" data-i18n="checkout.pay"></span><span class="button-arrow-animate" aria-hidden="true">→</span></span></button>
+                <p id="payment-message" class="form-message checkout-animate checkout-delay-8" role="alert" aria-live="polite"></p>
             </form>
         </div>
     </main>

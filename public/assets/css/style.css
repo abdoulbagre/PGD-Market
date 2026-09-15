@@ -10,7 +10,11 @@
     --violet: #7657a8;
     --blue: #4f83b5;
     --orange: #d97a4a;
-    --max: 1240px
+    --max: 1240px;
+    --ambient-1: rgba(74, 118, 255, .14);
+    --ambient-2: rgba(126, 92, 214, .12);
+    --ambient-3: rgba(15, 179, 172, .12);
+    --ambient-4: rgba(255, 153, 114, .10)
 }
 
 * {
@@ -22,11 +26,27 @@ html {
 }
 
 body {
+    position: relative;
     margin: 0;
-    background: var(--paper);
     color: var(--ink);
     font-family: Georgia, 'Times New Roman', serif;
-    line-height: 1.5
+    line-height: 1.5;
+    background-color: #f5f9ff;
+    background-image:
+        radial-gradient(circle at top left, var(--ambient-1) 0, transparent 22%),
+        radial-gradient(circle at 85% 8%, var(--ambient-2) 0, transparent 26%),
+        radial-gradient(circle at 12% 78%, var(--ambient-3) 0, transparent 20%),
+        radial-gradient(circle at 70% 72%, var(--ambient-4) 0, transparent 26%),
+        linear-gradient(135deg, #f7fbff 0%, #f3f7ff 24%, #f4f1ff 54%, #f7fcfb 100%)
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04));
+    z-index: -1
 }
 
 a {
@@ -40,6 +60,20 @@ select {
     font: inherit
 }
 
+:focus-visible {
+    outline: 3px solid rgba(20, 125, 104, .38);
+    outline-offset: 3px
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important
+    }
+}
+
 .container,
 .header-inner,
 .footer-inner {
@@ -48,8 +82,8 @@ select {
 }
 
 .site-header {
-    background: rgba(245, 247, 245, .94);
-    border-bottom: 1px solid var(--line);
+    background: rgba(248, 250, 255, .82);
+    border-bottom: 1px solid rgba(18, 47, 71, .08);
     position: sticky;
     top: 0;
     z-index: 5;
@@ -241,12 +275,13 @@ select {
 }
 
 .product-card {
-    background: #fff;
-    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .9);
+    border: 1px solid rgba(22, 34, 45, .08);
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     min-width: 0;
+    box-shadow: 0 10px 24px rgba(17, 31, 49, .04);
     transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease
 }
 
@@ -359,6 +394,103 @@ select {
 
 .button-primary:hover {
     background: var(--accent-dark)
+}
+
+.button-text-animate {
+    display: inline-block;
+    white-space: nowrap;
+    will-change: transform, opacity;
+    animation: buttonTextFloat 2.2s ease-in-out infinite;
+    transform-origin: center;
+}
+
+.checkout-button-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+    will-change: transform, opacity;
+    animation: buttonContentFloat 2.2s ease-in-out infinite;
+}
+
+.button-arrow-animate {
+    display: inline-block;
+    will-change: transform;
+    animation: buttonArrowFloat 2.2s ease-in-out infinite;
+}
+
+.button-primary:hover .button-text-animate {
+    animation-duration: 1.6s;
+}
+
+.button-primary:hover .checkout-button-content,
+.button-primary:hover .button-arrow-animate {
+    animation-duration: 1.6s;
+}
+
+@keyframes buttonContentFloat {
+    0%,
+    100% {
+        opacity: 1;
+        transform: translateX(0)
+    }
+
+    25% {
+        opacity: 1;
+        transform: translateX(4px)
+    }
+
+    50% {
+        opacity: .98;
+        transform: translateX(0)
+    }
+
+    75% {
+        opacity: 1;
+        transform: translateX(-2px)
+    }
+}
+
+@keyframes buttonArrowFloat {
+    0%,
+    100% {
+        transform: translateX(0)
+    }
+
+    25% {
+        transform: translateX(3px)
+    }
+
+    50% {
+        transform: translateX(0)
+    }
+
+    75% {
+        transform: translateX(-1px)
+    }
+}
+
+@keyframes buttonTextFloat {
+    0%,
+    100% {
+        opacity: 1;
+        transform: translateX(0)
+    }
+
+    25% {
+        opacity: 1;
+        transform: translateX(4px)
+    }
+
+    50% {
+        opacity: .96;
+        transform: translateX(0)
+    }
+
+    75% {
+        opacity: 1;
+        transform: translateX(-2px)
+    }
 }
 
 .button-small {
@@ -503,8 +635,9 @@ select {
 
 .summary-panel,
 .form-panel {
-    background: #fff;
-    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .9);
+    border: 1px solid rgba(22, 34, 45, .08);
+    box-shadow: 0 12px 24px rgba(16, 24, 40, .04);
     padding: 24px
 }
 
@@ -531,6 +664,50 @@ select {
     font-size: 2.2rem
 }
 
+.checkout-animate {
+    opacity: 0;
+    transform: translateY(15px);
+    animation: checkoutFadeIn .72s cubic-bezier(.2, .7, .2, 1) forwards;
+}
+
+.checkout-delay-1 { animation-delay: .04s; }
+.checkout-delay-2 { animation-delay: .12s; }
+.checkout-delay-3 { animation-delay: .20s; }
+.checkout-delay-4 { animation-delay: .28s; }
+.checkout-delay-5 { animation-delay: .36s; }
+.checkout-delay-6 { animation-delay: .44s; }
+.checkout-delay-7 { animation-delay: .52s; }
+.checkout-delay-8 { animation-delay: .60s; }
+
+#checkout-summary {
+    opacity: 0;
+    transform: translateY(18px);
+    animation: checkoutFadeIn .72s cubic-bezier(.2, .7, .2, 1) .08s forwards;
+}
+
+#checkout-summary > * {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: checkoutFadeIn .62s cubic-bezier(.2, .75, .2, 1) forwards;
+}
+
+#checkout-summary > *:nth-child(1) { animation-delay: .14s; }
+#checkout-summary > *:nth-child(2) { animation-delay: .22s; }
+#checkout-summary > *:nth-child(3) { animation-delay: .30s; }
+#checkout-summary > *:nth-child(4) { animation-delay: .38s; }
+
+@keyframes checkoutFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(15px)
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0)
+    }
+}
+
 .form-panel .button {
     margin-top: 8px
 }
@@ -546,8 +723,9 @@ select {
 }
 
 .cart-item {
-    background: #fff;
-    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .9);
+    border: 1px solid rgba(22, 34, 45, .08);
+    box-shadow: 0 8px 18px rgba(18, 27, 38, .03);
     padding: 14px;
     display: flex;
     align-items: center;
@@ -672,8 +850,26 @@ select {
         scroll-behavior: auto
     }
 
-    .reveal {
-        animation: none
+    .button-text-animate {
+        animation: none;
+        opacity: 1;
+        transform: none
+    }
+
+    .checkout-button-content,
+    .button-arrow-animate {
+        animation: none;
+        opacity: 1;
+        transform: none
+    }
+
+    .reveal,
+    .checkout-animate,
+    #checkout-summary,
+    #checkout-summary > * {
+        animation: none;
+        opacity: 1;
+        transform: none
     }
 
     .hero::before,
