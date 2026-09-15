@@ -264,7 +264,11 @@
 }
 
 .checkout-currency-control .currency-picker-menu {
-    width: 100%
+    position: static;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin: 0
 }
 
 .currency-option {

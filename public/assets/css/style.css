@@ -399,9 +399,6 @@ select {
 .button-text-animate {
     display: inline-block;
     white-space: nowrap;
-    will-change: transform, opacity;
-    animation: buttonTextFloat 2.2s ease-in-out infinite;
-    transform-origin: center;
 }
 
 .checkout-button-content {
@@ -417,10 +414,6 @@ select {
     display: inline-block;
     will-change: transform;
     animation: buttonArrowFloat 2.2s ease-in-out infinite;
-}
-
-.button-primary:hover .button-text-animate {
-    animation-duration: 1.6s;
 }
 
 .button-primary:hover .checkout-button-content,
@@ -467,29 +460,6 @@ select {
 
     75% {
         transform: translateX(-1px)
-    }
-}
-
-@keyframes buttonTextFloat {
-    0%,
-    100% {
-        opacity: 1;
-        transform: translateX(0)
-    }
-
-    25% {
-        opacity: 1;
-        transform: translateX(4px)
-    }
-
-    50% {
-        opacity: .96;
-        transform: translateX(0)
-    }
-
-    75% {
-        opacity: 1;
-        transform: translateX(-2px)
     }
 }
 
