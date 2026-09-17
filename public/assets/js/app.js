@@ -13,10 +13,72 @@ const escapeHtml = (value) => String(value).replace(/[&<>\"']/g, (char) => ({ "&
 const available = (product) => Boolean(product.fichier);
 const productImage = (product) => new URL(`../../${product.image}`, import.meta.url).href;
 const cartKey = "pgd-cart";
+const chariotLinks = {
+  "550e8400-e29b-41d4-a716-446655440000": "https://gtvsbtgo.mychariow.com/prd_5lj7fz8k",
+  "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90": "https://gtvsbtgo.mychariow.com/prd_ln1r0vbr"
+};
 const readCart = () => { try { const cart = JSON.parse(localStorage.getItem(cartKey) || "[]"); return Array.isArray(cart) ? [...new Set(cart)] : []; } catch { return []; } };
 const writeCart = (cart) => localStorage.setItem(cartKey, JSON.stringify([...new Set(cart)]));
 let currencyOutsideClickBound = false;
 function addToCart(productId, button) { const cart = readCart(); const alreadyAdded = cart.includes(productId); if (!alreadyAdded) { cart.push(productId); writeCart(cart); updateCartCount(); } const original = button.textContent; button.textContent = t(alreadyAdded ? "cart.alreadyAdded" : "cart.added"); button.disabled = true; setTimeout(() => { button.textContent = original; button.disabled = false; }, 1600); }
+
+function showChariotRedirectModal(productId, submitButton, messageElement) {
+  const existingModal = document.getElementById("chariot-redirect-modal");
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "chariot-redirect-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "chariot-redirect-title");
+  modal.style.position = "fixed";
+  modal.style.inset = "0";
+  modal.style.display = "flex";
+  modal.style.alignItems = "center";
+  modal.style.justifyContent = "center";
+  modal.style.padding = "1rem";
+  modal.style.background = "rgba(15, 23, 42, 0.55)";
+  modal.style.zIndex = "1000";
+
+  const panel = document.createElement("div");
+  panel.style.width = "min(100%, 420px)";
+  panel.style.background = "#ffffff";
+  panel.style.borderRadius = "16px";
+  panel.style.boxShadow = "0 20px 45px rgba(0, 0, 0, 0.2)";
+  panel.style.padding = "1.5rem";
+  panel.innerHTML = `
+    <h2 id="chariot-redirect-title" style="margin:0 0 0.75rem; font-size:1.4rem; color:#0f172a;">Redirection pour finaliser votre paiement</h2>
+    <p style="margin:0 0 0.75rem; line-height:1.6; color:#334155;">Pour cette devise, le paiement est actuellement finalisé via notre partenaire de paiement Chariot.</p>
+    <p style="margin:0 0 1.5rem; line-height:1.6; color:#334155;">Vous allez être redirigé vers une page sécurisée afin de finaliser votre commande.<br><br>Pour les paiements en XOF (Franc CFA), le paiement est directement traité par notre système de paiement.</p>
+    <div style="display:flex; gap:0.75rem; justify-content:flex-end; flex-wrap:wrap;">
+      <button type="button" data-chariot-cancel style="border:1px solid #cbd5e1; background:#fff; color:#0f172a; border-radius:999px; padding:0.8rem 1rem; cursor:pointer;">Annuler</button>
+      <button type="button" data-chariot-confirm style="border:none; background:#147d68; color:#fff; border-radius:999px; padding:0.8rem 1rem; cursor:pointer; font-weight:600;">Continuer vers le paiement</button>
+    </div>
+  `;
+
+  modal.appendChild(panel);
+  document.body.appendChild(modal);
+
+  const cancelButton = panel.querySelector("[data-chariot-cancel]");
+  const confirmButton = panel.querySelector("[data-chariot-confirm]");
+
+  cancelButton.addEventListener("click", () => {
+    modal.remove();
+    if (submitButton) submitButton.disabled = false;
+    if (messageElement) messageElement.textContent = "";
+  });
+
+  confirmButton.addEventListener("click", () => {
+    const chariotUrl = chariotLinks[productId];
+    modal.remove();
+    if (!chariotUrl) {
+      if (submitButton) submitButton.disabled = false;
+      if (messageElement) messageElement.textContent = "Le paiement n'est momentanément pas disponible pour ce produit.";
+      return;
+    }
+    window.location.href = chariotUrl;
+  });
+}
 
 function bindCheckoutCurrency() {
   bindCurrencyPickers(document.querySelectorAll("[data-checkout-currency-picker]"));
@@ -124,7 +186,7 @@ function setupShop() { const output = document.getElementById("shop-products"); 
 function setupHome() { const output = document.getElementById("featured-products"); output.innerHTML = products.slice(0, 3).map(productCard).join(""); bindCartButtons(output); }
 function setupProduct() { const product = findProduct(new URLSearchParams(location.search).get("id")); const target = document.getElementById("product-detail"); if (!product) { target.innerHTML = `<p>${t("product.notFound")}</p>`; document.title = t("titles.product"); return; } document.title = `${product.nom} | ${t("siteName")}`; target.innerHTML = `<div class="product-visual"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.nom)}"></div><div class="product-info"><span class="availability ${available(product) ? "available" : ""}">${available(product) ? t("product.available") : t("product.comingSoon")}</span><h1>${escapeHtml(product.nom)}</h1><p class="product-price">${formatPrice(product.prix)}</p><div class="rich-description">${product.description}</div>${available(product) ? `<div class="product-actions"><button class="button button-outline" type="button" data-add-cart="${product.id}">${t("product.add")}</button><a class="button button-primary" href="commande.html?id=${encodeURIComponent(product.id)}">${t("product.order")}</a></div>` : `<span class="button button-disabled">${t("product.unavailable")}</span>`}</div>`; bindCartButtons(target); }
 function mapPaymentError(error) { const message = String(error?.message || ""); if (/indisponible|unavailable|vente|sale/i.test(message)) return t("errors.productUnavailable"); if (/initialiser|initialize|paiement|payment/i.test(message)) return t("checkout.paymentFailed"); return t("errors.unknown"); }
-function setupCheckout() { const product = findProduct(new URLSearchParams(location.search).get("id")); const summary = document.getElementById("checkout-summary"); const form = document.getElementById("checkout-form"); if (!product || !available(product)) { summary.innerHTML = `<h1>${t("checkout.unavailableTitle")}</h1><p>${t("checkout.unavailableText")}</p>`; form.remove(); return; } summary.innerHTML = `<img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.nom)}"><p class="eyebrow">${t("checkout.summary")}</p><h2>${escapeHtml(product.nom)}</h2><strong>${formatPrice(product.prix)}</strong>`; if (form.dataset.bound) return; form.dataset.bound = "true"; form.addEventListener("submit", async (event) => { event.preventDefault(); const button = form.querySelector("button"); const message = document.getElementById("payment-message"); const name = document.getElementById("nom").value.trim(); const email = document.getElementById("email").value.trim(); const currency = getSelectedCurrency(); message.textContent = ""; if (!name) { message.textContent = t("checkout.nameRequired"); document.getElementById("nom").focus(); return; } if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { message.textContent = t("checkout.emailInvalid"); document.getElementById("email").focus(); return; } button.disabled = true; message.textContent = t("checkout.preparing"); try { const response = await fetch("/.netlify/functions/create-payment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nom: name, email, produitId: product.id, currency }) }); let data; try { data = await response.json(); } catch { throw new Error("invalid-json"); } if (!response.ok) throw new Error(data.error || "server-error"); const paymentId = data.paymentId || ""; const url = data.checkout_url || ""; if (!url || !paymentId) throw new Error("missing-payment-data"); localStorage.setItem("pgd_last_payment_id", paymentId); localStorage.setItem("pgd_last_product_id", product.id); location.href = url; } catch (error) { const knownErrors = ["invalid-json", "missing-payment-data", "server-error"]; message.textContent = knownErrors.includes(error.message) ? (error.message === "invalid-json" ? t("checkout.paymentFailed") : t("checkout.paymentLinkMissing")) : error.message; button.disabled = false; } }); }
+function setupCheckout() { const product = findProduct(new URLSearchParams(location.search).get("id")); const summary = document.getElementById("checkout-summary"); const form = document.getElementById("checkout-form"); if (!product || !available(product)) { summary.innerHTML = `<h1>${t("checkout.unavailableTitle")}</h1><p>${t("checkout.unavailableText")}</p>`; form.remove(); return; } summary.innerHTML = `<img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.nom)}"><p class="eyebrow">${t("checkout.summary")}</p><h2>${escapeHtml(product.nom)}</h2><strong>${formatPrice(product.prix)}</strong>`; if (form.dataset.bound) return; form.dataset.bound = "true"; form.addEventListener("submit", async (event) => { event.preventDefault(); const button = form.querySelector("button"); const message = document.getElementById("payment-message"); const name = document.getElementById("nom").value.trim(); const email = document.getElementById("email").value.trim(); const selectedCurrency = getSelectedCurrency(); message.textContent = ""; if (!name) { message.textContent = t("checkout.nameRequired"); document.getElementById("nom").focus(); return; } if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { message.textContent = t("checkout.emailInvalid"); document.getElementById("email").focus(); return; } if (selectedCurrency !== "XOF") { button.disabled = false; showChariotRedirectModal(product.id, button, message); return; } button.disabled = true; message.textContent = t("checkout.preparing"); try { const response = await fetch("/.netlify/functions/create-payment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nom: name, email, produitId: product.id, currency: "XOF" }) }); let data; try { data = await response.json(); } catch { throw new Error("invalid-json"); } if (!response.ok) throw new Error(data.error || "server-error"); const paymentId = data.paymentId || ""; const url = data.checkout_url || ""; if (!url || !paymentId) throw new Error("missing-payment-data"); localStorage.setItem("pgd_last_payment_id", paymentId); localStorage.setItem("pgd_last_product_id", product.id); location.href = url; } catch (error) { const knownErrors = ["invalid-json", "missing-payment-data", "server-error"]; message.textContent = knownErrors.includes(error.message) ? (error.message === "invalid-json" ? t("checkout.paymentFailed") : t("checkout.paymentLinkMissing")) : error.message; button.disabled = false; } }); }
 function setupCart() { const content = document.getElementById("cart-content"); const ids = readCart(); const items = ids.map(findProduct).filter(Boolean); if (!items.length) { content.innerHTML = `<p>${t("cart.empty")}</p><div class="cart-actions"><button class="button button-disabled" type="button" disabled>${t("cart.checkout")}</button><a class="button button-primary" href="boutique.html">${t("cart.discover")}</a></div>`; return; } const total = items.reduce((sum, product) => sum + product.prix, 0); const rows = items.map((product) => `<div class="cart-item"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.nom)}"><div><h2>${escapeHtml(product.nom)}</h2><strong>${formatPrice(product.prix)}</strong></div><button class="button button-small button-outline" type="button" data-remove="${product.id}">${t("cart.remove")}</button></div>`).join(""); const checkout = items.length === 1 ? `<a class="button button-primary" href="commande.html?id=${items[0].id}">${t("cart.checkout")}</a>` : `<div class="cart-order-options"><p class="form-message">${t("cart.groupUnavailable")}</p>${items.map((product) => `<a class="text-link" href="commande.html?id=${product.id}">${t("cart.singleCheckout")} : ${escapeHtml(product.nom)}</a>`).join("")}</div>`; content.innerHTML = `<div class="cart-items">${rows}</div><div class="cart-summary"><p>${t("cart.subtotal")} : <strong>${formatPrice(total)}</strong></p><p>${t("cart.total")} : <strong>${formatPrice(total)}</strong></p><div class="cart-actions">${checkout}<button class="button button-outline" type="button" data-clear-cart>${t("cart.clear")}</button></div></div>`; content.querySelectorAll("[data-remove]").forEach((button) => button.addEventListener("click", () => { writeCart(ids.filter((id) => id !== button.dataset.remove)); setupCart(); updateCartCount(); })); content.querySelector("[data-clear-cart]").addEventListener("click", () => { writeCart([]); setupCart(); updateCartCount(); }); }
 const downloadUrl = (paymentId, productId, file) => `/.netlify/functions/download?paymentId=${encodeURIComponent(paymentId)}&produitId=${encodeURIComponent(productId)}&file=${encodeURIComponent(file)}`;
 const downloadErrorMessage = (error) => {

@@ -31,6 +31,10 @@ exports.handler = async (event) => {
     return jsonResponse(400, { error: "Nom, email ou produit manquant." });
   }
 
+  if (currency !== "XOF") {
+    return jsonResponse(400, { error: "Cette devise est gérée via Chariot. Le paiement Moneroo n'est pas utilisé." });
+  }
+
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return jsonResponse(400, { error: "Adresse email invalide." });
   }
