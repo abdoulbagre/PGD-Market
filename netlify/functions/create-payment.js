@@ -1,8 +1,14 @@
+const crypto = require("crypto");
 const { findProduct } = require("./_products");
-const { getExpectedAmount, normalizeCurrency } = require("./_moneroo");
+
+const supportedCurrencies = new Set(["XOF", "EUR", "USD"]);
+const normalizeCurrency = (currency) => {
+  const normalized = typeof currency === "string" ? currency.trim().toUpperCase() : "";
+  return supportedCurrencies.has(normalized) ? normalized : "";
+};
 
 const getBaseUrl = () =>
-  process.env.URL || process.env.DEPLOY_URL || process.env.NETLIFY_URL || "http://localhost:8888";
+  (process.env.URL || process.env.DEPLOY_URL || process.env.NETLIFY_URL || "").replace(/\/+$/, "");
 
 const jsonResponse = (statusCode, body) => ({
   statusCode,
@@ -26,17 +32,21 @@ exports.handler = async (event) => {
   const email = typeof payload.email === "string" ? payload.email.trim() : "";
   const produitId = typeof payload.produitId === "string" ? payload.produitId.trim() : "";
   const currency = normalizeCurrency(payload.currency);
+  const phone = typeof payload.phone === "string" ? payload.phone.replace(/\D/g, "") : "";
+  const phoneCountryCode = typeof payload.phoneCountryCode === "string"
+    ? payload.phoneCountryCode.trim().toUpperCase()
+    : "";
 
-  if (!nom || !email || !produitId || !currency) {
-    return jsonResponse(400, { error: "Nom, email ou produit manquant." });
-  }
-
-  if (currency !== "XOF") {
-    return jsonResponse(400, { error: "Cette devise est gérée via Chariot. Le paiement Moneroo n'est pas utilisé." });
+  if (!nom || !email || !produitId || !currency || !phone || !phoneCountryCode) {
+    return jsonResponse(400, { error: "Nom, email, téléphone, pays ou produit manquant." });
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return jsonResponse(400, { error: "Adresse email invalide." });
+  }
+
+  if (phone.length < 6 || !/^[A-Z]{2}$/.test(phoneCountryCode)) {
+    return jsonResponse(400, { error: "Numéro de téléphone ou code pays invalide." });
   }
 
   const produit = findProduct(produitId);
@@ -44,46 +54,53 @@ exports.handler = async (event) => {
     return jsonResponse(404, { error: "Produit introuvable." });
   }
 
-  if (!Number.isInteger(produit.prix) || produit.prix <= 0 || !produit.fichiers.length) {
+  if (!Number.isInteger(produit.prix) || produit.prix <= 0 || !produit.fichiers.length || !produit.chariowProductId) {
     return jsonResponse(400, { error: "Produit indisponible à la vente." });
+  }
+
+  const apiKey = process.env.CHARIOW_API_KEY?.trim();
+  if (!apiKey) {
+    console.error("CHARIOW CHECKOUT CONFIGURATION ERROR: CHARIOW_API_KEY is missing");
+    return jsonResponse(500, { error: "Le service de paiement est temporairement indisponible." });
   }
 
   const nameParts = nom.split(/\s+/);
   const firstName = nameParts.shift() || "Client";
   const lastName = nameParts.join(" ") || "Client";
   const baseUrl = getBaseUrl();
-  const amount = getExpectedAmount(produit, currency);
+  if (!baseUrl) {
+    console.error("CHARIOW CHECKOUT CONFIGURATION ERROR: site URL is missing");
+    return jsonResponse(500, { error: "Le service de paiement est temporairement indisponible." });
+  }
+  const orderRef = `PGD-${crypto.randomUUID()}`;
 
   try {
-    const response = await fetch("https://api.moneroo.io/v1/payments/initialize", {
+    const response = await fetch(`${process.env.CHARIOW_API_BASE_URL || "https://api.chariow.com/v1"}/checkout`, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.MONEROO_SECRET_KEY}`
+        Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        amount,
-        currency,
-        description: produit.nom,
-        return_url: `${baseUrl}/success.html?produitId=${encodeURIComponent(produit.id)}`,
-        customer: {
-          first_name: firstName,
-          last_name: lastName,
-          email
-        },
-        metadata: {
-          produitId: String(produit.id),
-          produitNom: String(produit.nom),
-          amount: String(amount),
-          currency
+        product_id: produit.chariowProductId,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        phone: { number: phone, country_code: phoneCountryCode },
+        payment_currency: currency,
+        redirect_url: `${baseUrl}/success.html`,
+        custom_metadata: {
+          produit_id: String(produit.id),
+          order_ref: orderRef,
+          currency: currency
         }
       })
     });
 
     const data = await response.json().catch(() => ({}));
-    if (response.status !== 201) {
-      console.error("MONEROO INITIALIZE ERROR:", {
+    if (!response.ok) {
+      console.error("CHARIOW CHECKOUT ERROR:", {
         status: response.status,
         message: data?.message || "Réponse HTTP inattendue"
       });
@@ -93,22 +110,18 @@ exports.handler = async (event) => {
       );
     }
 
-    const payment = data?.data;
-    if (!payment?.checkout_url || !payment?.id) {
-      console.error("MONEROO INITIALIZE ERROR:", {
+    const checkout = data?.data;
+    if (!checkout?.payment?.checkout_url) {
+      console.error("CHARIOW CHECKOUT ERROR:", {
         status: response.status,
-        message: "Réponse Moneroo incomplète"
+        message: "Réponse Chariow incomplète"
       });
       return jsonResponse(502, { error: "Réponse de paiement invalide." });
     }
 
-    return jsonResponse(200, {
-      success: true,
-      checkout_url: payment.checkout_url,
-      paymentId: payment.id
-    });
+    return jsonResponse(200, { checkout_url: checkout.payment.checkout_url });
   } catch (error) {
-    console.error("PAYMENT INITIALIZATION ERROR:", {
+    console.error("CHARIOW CHECKOUT INITIALIZATION ERROR:", {
       status: error.statusCode || 500,
       message: error.message || "Erreur réseau"
     });

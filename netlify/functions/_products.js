@@ -3,6 +3,7 @@ const products = [
     id: "550e8400-e29b-41d4-a716-446655440000",
     nom: "monétisation TikTok – De A à Z",
     prix: 4200,
+    chariowProductId: "prd_5lj7fz8k",
     fichiers: [
       "BONUS Le secret pour transformer tes vidéos en cash.pdf",
       "PLAN 0 A 10K ABONNES EN 30 JOURS.pdf",
@@ -13,10 +14,12 @@ const products = [
     id: "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90",
     nom: "Guide Pratique du Marketing avec l’IA",
     prix: 2999,
+    chariowProductId: "prd_ln1r0vbr",
     fichiers: ["Guide Pratique du Marketing avec l’IA.pdf"]
   }
 ];
 
 const findProduct = (id) => products.find((product) => product.id === id);
+const findProductByChariowId = (id) => products.find((product) => product.chariowProductId === id);
 
-module.exports = { products, findProduct };
+module.exports = { products, findProduct, findProductByChariowId };
