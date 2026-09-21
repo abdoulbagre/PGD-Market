@@ -19,20 +19,21 @@
     <link rel="stylesheet" href="assets/css/responsive.css">
 </head>
 
-<body data-page="checkout">
+<body class="checkout-page" data-page="checkout">
     <header class="site-header" data-header></header>
-    <main class="container page-shell"><a class="back-link" href="boutique.html" data-i18n="checkout.back"></a>
+    <main class="container page-shell">
         <div class="checkout-layout">
-            <section id="checkout-summary" class="summary-panel"></section>
             <form id="checkout-form" class="form-panel" novalidate>
-                <p class="eyebrow checkout-animate checkout-delay-1" data-i18n="checkout.eyebrow"></p>
-                <h1 class="checkout-animate checkout-delay-2" data-i18n="checkout.title"></h1>
-                <p class="muted checkout-animate checkout-delay-3" data-i18n="checkout.privacy"></p>
+                <h1 class="checkout-animate checkout-delay-1" data-i18n="checkout.title"></h1>
+                <details class="checkout-order">
+                    <summary>Votre commande</summary>
+                    <section id="checkout-summary" class="summary-panel"></section>
+                </details>
                 <div class="checkout-currency-control checkout-animate checkout-delay-4" data-checkout-currency-picker data-currency-picker-root><span class="currency-picker-label" data-i18n="checkout.currency"></span><button class="currency-picker-trigger" type="button" data-currency-trigger aria-expanded="false" aria-haspopup="listbox"><span data-currency-flag aria-hidden="true"></span><span data-currency-label></span><span class="currency-picker-chevron" aria-hidden="true">⌄</span></button><div class="currency-picker-menu" data-currency-menu role="listbox" hidden><button class="currency-option" type="button" role="option" data-currency-option="XOF"><span>Franc CFA</span></button><button class="currency-option" type="button" role="option" data-currency-option="EUR"><span aria-hidden="true">🇫🇷</span><span>Euro</span></button><button class="currency-option" type="button" role="option" data-currency-option="USD"><span aria-hidden="true">🇺🇸</span><span>Dollar</span></button></div></div>
                 <label class="checkout-animate checkout-delay-5"><span data-i18n="checkout.name"></span><input id="nom" name="nom" autocomplete="name" required></label>
                 <label class="checkout-animate checkout-delay-6"><span data-i18n="checkout.email"></span><input id="email" name="email" type="email" autocomplete="email" required></label>
                 <label class="checkout-animate checkout-delay-6"><span>Téléphone</span><input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required></label>
-                <label class="checkout-animate checkout-delay-6"><span>Code pays du téléphone</span><input id="phone-country-code" name="phone-country-code" type="text" autocomplete="country" placeholder="Ex: BF" maxlength="2" required></label>
+                <label class="checkout-animate checkout-delay-6"><span>Code pays du téléphone</span><input id="phone-country-code" name="phone-country-code" type="text" autocomplete="country" placeholder="Ex: BF" maxlength="4" required></label>
                 <button class="button button-primary checkout-animate checkout-delay-7" type="submit"><span class="checkout-button-content"><span class="button-arrow-animate" aria-hidden="true">→</span><span class="button-text-animate" data-i18n="checkout.pay"></span></span></button>
                 <p id="payment-message" class="form-message checkout-animate checkout-delay-8" role="alert" aria-live="polite"></p>
             </form>
