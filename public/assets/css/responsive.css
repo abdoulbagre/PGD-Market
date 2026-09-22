@@ -242,6 +242,7 @@
     .product-sticky-cta .button {
         flex: 1;
         min-height: 48px;
+        border-radius: 8px;
         min-width: 0;
         padding-inline: 12px;
         white-space: nowrap

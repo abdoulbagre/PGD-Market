@@ -145,6 +145,24 @@ select {
     padding: 8px 12px
 }
 
+@media (max-width: 699px) {
+    .menu-toggle {
+        font-size: 0;
+        color: var(--accent-dark)
+    }
+
+    .menu-toggle::before {
+        content: "";
+        display: inline-block;
+        width: 18px;
+        height: 1.5px;
+        background: currentColor;
+        box-shadow: 0 -5px currentColor, 0 5px currentColor;
+        vertical-align: middle;
+        transform: translateY(0)
+    }
+}
+
 .hero {
     display: grid;
     gap: 28px;
