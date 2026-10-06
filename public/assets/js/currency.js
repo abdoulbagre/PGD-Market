@@ -50,18 +50,19 @@ export const convertPrice = (priceXOF, currency = defaultCurrency) => {
 export const formatDisplayPrice = (priceXOF, currency = getSelectedCurrency()) => {
   const normalizedCurrency = supportedCurrencies.has(currency) ? currency : defaultCurrency;
   const amount = convertPrice(priceXOF, normalizedCurrency);
+  const displayAmount = normalizedCurrency === "XOF" ? amount : Math.round(amount);
   if (normalizedCurrency === "USD") {
     return `$${new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount)}`;
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(displayAmount)}`;
   }
 
   return new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: normalizedCurrency,
-    maximumFractionDigits: normalizedCurrency === "XOF" ? 0 : 2
-  }).format(amount);
+    maximumFractionDigits: 0
+  }).format(displayAmount);
 };
 
 export const getSelectedCurrency = () => {

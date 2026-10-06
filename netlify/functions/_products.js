@@ -2,7 +2,7 @@ const products = [
   {
     id: "550e8400-e29b-41d4-a716-446655440000",
     nom: "monétisation TikTok & 10k d'abonnés en 7 jours",
-    prix: 5999,
+    prix: 4200,
     chariowProductId: "prd_5lj7fz8k",
     fichiers: [
       "BONUS Le secret pour transformer tes vidéos en cash.pdf",
@@ -12,7 +12,7 @@ const products = [
   {
     id: "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90",
     nom: "Guide Pratique du Marketing avec l’IA",
-    prix: 8400,
+    prix: 3000,
     chariowProductId: "prd_ln1r0vbr",
     fichiers: ["Guide Pratique du Marketing avec l’IA.pdf"]
   }
