@@ -367,7 +367,8 @@ select {
 .product-card-footer>strong {
     min-width: 0;
     color: var(--accent-dark);
-    font: 700 clamp(1rem, 1.4vw, 1.2rem) Arial, sans-serif;
+    font: 700 clamp(1.1rem, 1.7vw, 1.3rem) Arial, sans-serif;
+    line-height: 1.2;
     white-space: nowrap
 }
 
@@ -592,15 +593,10 @@ select {
 .product-heading h1 {
     max-width: 900px;
     margin: 0;
-    font-size: 42px;
+    font-size: clamp(1rem, 2vw, 1.65rem);
     line-height: 1.15;
     font-weight: 400;
-    overflow-wrap: anywhere;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden
+    overflow-wrap: anywhere
 }
 
 .product-left {
@@ -608,9 +604,13 @@ select {
 }
 
 .product-visual {
-    aspect-ratio: 4/3;
-    overflow: hidden;
+    aspect-ratio: auto;
     background: #e8eeea
+}
+
+.product-visual img {
+    height: auto;
+    object-fit: contain
 }
 
 .product-price {
