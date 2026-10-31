@@ -4,6 +4,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    const identityCallbackParams = new URLSearchParams(window.location.hash.slice(1));
+    const hasIdentityToken = ["recovery_token", "invite_token"]
+      .some((key) => identityCallbackParams.get(key));
+
+    if (window.location.pathname === "/" && hasIdentityToken) {
+      window.location.replace(`/admin.html${window.location.hash}`);
+    }
+  </script>
 
     <!-- Meta Pixel Code -->
   <script>
