@@ -16,6 +16,11 @@
         "cart": "Cart",
         "contact": "Contact",
         "menu": "Menu",
+        "openMenu": "Open menu",
+        "closeMenu": "Close menu",
+        "mainNavigation": "Main navigation",
+        "cartCount": "Number of items in cart",
+        "brandHome": "PGD DIGITAL - Home",
         "language": "Language"
     },
     "language": {
@@ -61,6 +66,7 @@
         "sortPriceDown": "Price: high to low",
         "resultOne": "product",
         "resultMany": "products",
+        "noResults": "No products match these filters.",
         "filters": "Shop filters"
     },
     "product": {
@@ -74,15 +80,24 @@
         "order": "Order now",
         "notFound": "Product not found"
     },
+    "catalog": {
+        "loading": "Loading the catalog…",
+        "noProducts": "No products are available right now.",
+        "networkError": "Could not connect to the catalog. Check your connection and try again.",
+        "httpError": "The catalog is temporarily unavailable. Please try again shortly.",
+        "invalidResponse": "The catalog returned invalid data. Please try again shortly.",
+        "retry": "Retry",
+        "backToShop": "Back to the shop"
+    },
     "checkout": {
         "back": "← Back to shop",
         "eyebrow": "Checkout",
         "title": "Your information",
         "privacy": "This information is sent only to process your order.",
         "currency": "Display currency",
-        "currencyXof": "Franc CFA",
+        "currencyXof": "CFA franc",
         "currencyEur": "Euro",
-        "currencyUsd": "Dollar",
+        "currencyUsd": "US dollar",
         "summary": "Your order",
         "name": "Full name",
         "email": "Email address",
@@ -94,7 +109,11 @@
         "preparing": "Preparing payment...",
         "paymentFailed": "Payment could not be prepared.",
         "paymentLinkMissing": "Payment link not found.",
-        "unknownError": "Something went wrong. Please try again."
+        "unknownError": "Something went wrong. Please try again.",
+        "phone": "Phone number",
+        "phoneCountryCode": "Phone country code",
+        "phoneCountryCodePlaceholder": "E.g. BF",
+        "phoneInvalid": "Enter a valid phone number and country code."
     },
     "cart": {
         "eyebrow": "Your selection",
@@ -109,7 +128,9 @@
         "added": "Product added to cart.",
         "alreadyAdded": "This product is already in your cart.",
         "groupUnavailable": "Grouped payment is not available with the current service. Order each product separately.",
-        "singleCheckout": "Order this product"
+        "singleCheckout": "Order this product",
+        "staleReferences": "{{count}} item reference(s) in your cart are no longer available in the catalog.",
+        "removeStale": "Remove unavailable items"
     },
     "contact": {
         "eyebrow": "Contact us",
@@ -142,5 +163,43 @@
     "errors": {
         "productUnavailable": "This product is currently unavailable.",
         "unknown": "Something went wrong. Please try again."
+    },
+    "productDetails": {
+        "purchaseOverview": "Purchase overview",
+        "paymentMethods": "Available payment methods",
+        "report": "Report",
+        "purchaseHelpTitle": "How to buy",
+        "purchaseHelpText": "Choose your currency, then select Buy now to continue to secure payment."
+    },
+    "successPage": {
+        "title": "Purchase confirmed | PGD DIGITAL",
+        "eyebrow": "Purchase confirmed",
+        "heading": "Your order was completed successfully",
+        "delivery": "Chariow will email you a link to your product.",
+        "spam": "Check your inbox and your junk or spam folder.",
+        "thanks": "Thank you for your purchase!",
+        "back": "Back to home"
+    },
+    "products": {
+        "550e8400-e29b-41d4-a716-446655440000": {
+            "name": "TikTok monetization and 10,000 followers in 7 days",
+            "description": "📄 A PDF guide to creating and activating your monetized TikTok account, step by step.<br><br>📄 A practical PDF guide to reaching 10,000 followers, finding viral video ideas, avoiding common mistakes, and taking action with a checklist.<br><br>✅ TikTok Cash Guide: A complete method for creating a monetized account and gaining your first qualified followers.<br><br>🎁 Bonus 1 – The Video-to-Cash Secret: Learn how to turn views into revenue and keep your audience watching until the end.<br><br>🎁 Bonus 2 – The Success Planner: The best posting times to maximize your reach with the TikTok algorithm.<br><br>🎁 Bonus 3 – 10 Viral Content Templates: Ready-to-use video formats to help you create engaging content.<br><br>🎁 Bonus 4 – The Trend Radar: Learn how to spot trends early and make smart use of them.<br><br>🎁 Bonus 5 – The Dashboard: A tracking tool to analyze performance and improve your results on TikTok."
+        },
+        "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90": {
+            "name": "Practical Guide to AI Marketing",
+            "description": "Master modern marketing with the power of AI. This comprehensive guide shows you how to use artificial intelligence tools to take your marketing strategy further. Learn how to automate campaigns, analyze customer behavior, and create compelling content in less time.<br><br>You will learn:<br>✅ The foundations of intelligent marketing in the digital age.<br>✅ How to use AI to reach the right customers at the right time.<br>✅ Ways to increase conversions with predictive analytics.<br>✅ AI tools for creating ads, emails, and automated visuals.<br>✅ How to build a strong, lasting brand through AI-assisted personalization.<br><br>💡 This guide is for entrepreneurs, marketers, and content creators who want to transform their business with AI. Get ready to rethink how you communicate, sell, and innovate!"
+        },
+        "3b12f1df-5232-4e7a-9f2d-8c1a6b5e4d30": {
+            "name": "How to write a university thesis — Bachelor's, Master's, and Doctoral degrees",
+            "description": "Coming soon."
+        },
+        "a8d7c6b5-4e3f-42a1-b9c8-7d6e5f4a3b21": {
+            "name": "CANVA PRO GUIDE — FREE FOR LIFE",
+            "description": "Coming soon."
+        },
+        "91e2d3c4-5f6a-4789-ab01-23456789cdef": {
+            "name": "Cryptocurrency and Trading Basics",
+            "description": "Coming soon."
+        }
     }
 }

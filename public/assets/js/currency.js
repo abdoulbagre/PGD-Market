@@ -47,9 +47,32 @@ export const convertPrice = (priceXOF, currency = defaultCurrency) => {
   return Number(priceXOF) * rate;
 };
 
-export const formatDisplayPrice = (priceXOF, currency = getSelectedCurrency()) => {
-  const normalizedCurrency = supportedCurrencies.has(currency) ? currency : defaultCurrency;
-  const amount = convertPrice(priceXOF, normalizedCurrency);
+export const convertPriceBetweenCurrencies = (
+  amount,
+  sourceCurrency = defaultCurrency,
+  targetCurrency = defaultCurrency
+) => {
+  const sourceRate = exchangeRates[sourceCurrency] || exchangeRates[defaultCurrency];
+  const targetRate = exchangeRates[targetCurrency] || exchangeRates[defaultCurrency];
+  return Number(amount) / sourceRate * targetRate;
+};
+
+export const formatDisplayPrice = (
+  price,
+  sourceCurrency = defaultCurrency,
+  displayCurrency = getSelectedCurrency()
+) => {
+  const normalizedSourceCurrency = supportedCurrencies.has(sourceCurrency)
+    ? sourceCurrency
+    : defaultCurrency;
+  const normalizedCurrency = supportedCurrencies.has(displayCurrency)
+    ? displayCurrency
+    : defaultCurrency;
+  const amount = convertPriceBetweenCurrencies(
+    price,
+    normalizedSourceCurrency,
+    normalizedCurrency
+  );
   const displayAmount = normalizedCurrency === "XOF" ? amount : Math.round(amount);
   if (normalizedCurrency === "USD") {
     return `$${new Intl.NumberFormat("en-US", {

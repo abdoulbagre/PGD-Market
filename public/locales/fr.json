@@ -16,6 +16,11 @@
         "cart": "Panier",
         "contact": "Contact",
         "menu": "Menu",
+        "openMenu": "Ouvrir le menu",
+        "closeMenu": "Fermer le menu",
+        "mainNavigation": "Navigation principale",
+        "cartCount": "Nombre d’articles dans le panier",
+        "brandHome": "PGD DIGITAL - Accueil",
         "language": "Langue"
     },
     "language": {
@@ -61,6 +66,7 @@
         "sortPriceDown": "Prix décroissant",
         "resultOne": "produit",
         "resultMany": "produits",
+        "noResults": "Aucun produit ne correspond à ces filtres.",
         "filters": "Filtres de boutique"
     },
     "product": {
@@ -73,6 +79,15 @@
         "added": "Ajouté au panier",
         "order": "Commander maintenant",
         "notFound": "Produit introuvable"
+    },
+    "catalog": {
+        "loading": "Chargement du catalogue…",
+        "noProducts": "Aucun produit disponible pour le moment.",
+        "networkError": "Connexion impossible au catalogue. Vérifiez votre connexion puis réessayez.",
+        "httpError": "Le catalogue est momentanément indisponible. Réessayez dans quelques instants.",
+        "invalidResponse": "Le catalogue a renvoyé des données invalides. Réessayez dans quelques instants.",
+        "retry": "Réessayer",
+        "backToShop": "Retour à la boutique"
     },
     "checkout": {
         "back": "← Retour à la boutique",
@@ -94,7 +109,11 @@
         "preparing": "Préparation du paiement...",
         "paymentFailed": "Le paiement n’a pas pu être préparé.",
         "paymentLinkMissing": "Lien de paiement introuvable.",
-        "unknownError": "Une erreur est survenue. Veuillez réessayer."
+        "unknownError": "Une erreur est survenue. Veuillez réessayer.",
+        "phone": "Téléphone",
+        "phoneCountryCode": "Code pays du téléphone",
+        "phoneCountryCodePlaceholder": "Ex. : BF",
+        "phoneInvalid": "Veuillez saisir un téléphone et un code pays valides."
     },
     "cart": {
         "eyebrow": "Votre sélection",
@@ -109,7 +128,9 @@
         "added": "Produit ajouté au panier.",
         "alreadyAdded": "Ce produit est déjà dans votre panier.",
         "groupUnavailable": "Le paiement groupé n’est pas disponible avec le service actuel. Commandez chaque produit séparément.",
-        "singleCheckout": "Commander ce produit"
+        "singleCheckout": "Commander ce produit",
+        "staleReferences": "{{count}} référence(s) de votre panier ne sont plus disponibles dans le catalogue.",
+        "removeStale": "Retirer les références indisponibles"
     },
     "contact": {
         "eyebrow": "Nous contacter",
@@ -142,5 +163,21 @@
     "errors": {
         "productUnavailable": "Ce produit n’est actuellement pas disponible.",
         "unknown": "Une erreur est survenue. Veuillez réessayer."
+    },
+    "productDetails": {
+        "purchaseOverview": "Aperçu de votre achat",
+        "paymentMethods": "Moyens de paiement disponibles",
+        "report": "Signaler",
+        "purchaseHelpTitle": "Comment acheter ?",
+        "purchaseHelpText": "Choisissez votre devise, puis cliquez sur Acheter maintenant pour continuer vers le paiement sécurisé."
+    },
+    "successPage": {
+        "title": "Achat confirmé | PGD DIGITAL",
+        "eyebrow": "Achat confirmé",
+        "heading": "Votre commande a été effectuée avec succès",
+        "delivery": "Le lien de votre produit vous sera envoyé par e-mail par Chariow.",
+        "spam": "Pensez à vérifier votre boîte de réception ainsi que vos courriers indésirables ou spams.",
+        "thanks": "Merci pour votre achat !",
+        "back": "Retour à l'accueil"
     }
 }

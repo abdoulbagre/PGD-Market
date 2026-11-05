@@ -1,5 +1,13 @@
 const crypto = require("crypto");
-const { findProduct } = require("./_products");
+
+const readCentralCatalog = async () => {
+  const [{ readCatalog }, { isPurchasable }] = await Promise.all([
+    import("./_catalog.mjs"),
+    import("../lib/catalog/_catalog-model.mjs")
+  ]);
+  const result = await readCatalog();
+  return { ...result, isPurchasable };
+};
 
 const supportedCurrencies = new Set(["XOF", "EUR", "USD"]);
 const normalizeCurrency = (currency) => {
@@ -7,8 +15,8 @@ const normalizeCurrency = (currency) => {
   return supportedCurrencies.has(normalized) ? normalized : "";
 };
 
-const getBaseUrl = () =>
-  (process.env.URL || process.env.DEPLOY_URL || process.env.NETLIFY_URL || "").replace(/\/+$/, "");
+const getBaseUrl = (env) =>
+  (env.URL || env.DEPLOY_URL || env.NETLIFY_URL || "").replace(/\/+$/, "");
 
 const jsonResponse = (statusCode, body) => ({
   statusCode,
@@ -16,7 +24,11 @@ const jsonResponse = (statusCode, body) => ({
   body: JSON.stringify(body)
 });
 
-exports.handler = async (event) => {
+exports.createPaymentHandler = ({
+  catalogReader = readCentralCatalog,
+  fetchImpl = (...args) => fetch(...args),
+  env = process.env
+} = {}) => async (event) => {
   if (event.httpMethod !== "POST") {
     return jsonResponse(405, { error: "Méthode non autorisée" });
   }
@@ -49,16 +61,42 @@ exports.handler = async (event) => {
     return jsonResponse(400, { error: "Numéro de téléphone ou code pays invalide." });
   }
 
-  const produit = findProduct(produitId);
+  let catalogResult;
+  try {
+    catalogResult = await catalogReader();
+  } catch (error) {
+    console.error("CATALOG CHECKOUT READ ERROR:", {
+      code: error?.code || "CATALOG_UNAVAILABLE"
+    });
+    return jsonResponse(503, { error: "Le catalogue est temporairement indisponible." });
+  }
+
+  if (
+    !Array.isArray(catalogResult?.catalog?.products) ||
+    typeof catalogResult.isPurchasable !== "function"
+  ) {
+    console.error("CATALOG CHECKOUT READ ERROR:", { code: "CATALOG_INVALID" });
+    return jsonResponse(503, { error: "Le catalogue est temporairement indisponible." });
+  }
+
+  const produit = catalogResult.catalog.products.find((product) => product.id === produitId);
   if (!produit) {
     return jsonResponse(404, { error: "Produit introuvable." });
   }
 
-  if (!Number.isInteger(produit.prix) || produit.prix <= 0 || !produit.fichiers.length || !produit.chariowProductId) {
+  const isPurchasable = catalogResult.isPurchasable(produit);
+  const price = produit.price;
+  const chariowProductId = produit.chariowProductId;
+  if (
+    !isPurchasable ||
+    !Number.isSafeInteger(price) ||
+    price <= 0 ||
+    typeof chariowProductId !== "string"
+  ) {
     return jsonResponse(400, { error: "Produit indisponible à la vente." });
   }
 
-  const apiKey = process.env.CHARIOW_API_KEY?.trim();
+  const apiKey = env.CHARIOW_API_KEY?.trim();
   if (!apiKey) {
     console.error("CHARIOW CHECKOUT CONFIGURATION ERROR: CHARIOW_API_KEY is missing");
     return jsonResponse(500, { error: "Le service de paiement est temporairement indisponible." });
@@ -67,7 +105,7 @@ exports.handler = async (event) => {
   const nameParts = nom.split(/\s+/);
   const firstName = nameParts.shift() || "Client";
   const lastName = nameParts.join(" ") || "Client";
-  const baseUrl = getBaseUrl();
+  const baseUrl = getBaseUrl(env);
   if (!baseUrl) {
     console.error("CHARIOW CHECKOUT CONFIGURATION ERROR: site URL is missing");
     return jsonResponse(500, { error: "Le service de paiement est temporairement indisponible." });
@@ -75,7 +113,7 @@ exports.handler = async (event) => {
   const orderRef = `PGD-${crypto.randomUUID()}`;
 
   try {
-    const response = await fetch(`${process.env.CHARIOW_API_BASE_URL || "https://api.chariow.com/v1"}/checkout`, {
+    const response = await fetchImpl(`${env.CHARIOW_API_BASE_URL || "https://api.chariow.com/v1"}/checkout`, {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -83,7 +121,7 @@ exports.handler = async (event) => {
         Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        product_id: produit.chariowProductId,
+        product_id: chariowProductId,
         email,
         first_name: firstName,
         last_name: lastName,
@@ -128,3 +166,5 @@ exports.handler = async (event) => {
     return jsonResponse(502, { error: "Le service de paiement est temporairement indisponible." });
   }
 };
+
+exports.handler = exports.createPaymentHandler();

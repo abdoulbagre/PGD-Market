@@ -147,6 +147,26 @@
     color: var(--accent)
 }
 
+.catalog-state {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--muted);
+    text-align: center
+}
+
+.catalog-state p {
+    flex-basis: 100%;
+    margin: 0
+}
+
 .search-field {
     min-width: 0
 }
@@ -319,6 +339,11 @@
 
 .product-card .product-actions .button {
     flex: 1 1 0
+}
+
+.product-card .button-disabled {
+    color: var(--ink);
+    cursor: default
 }
 
 .cart-items {
