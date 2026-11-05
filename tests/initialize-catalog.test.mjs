@@ -47,6 +47,7 @@ const environment = {
 const makeMemoryStore = () => {
   let record = null;
   let writes = 0;
+  let successfulWrites = 0;
   return {
     async getWithMetadata() {
       if (!record) return null;
@@ -59,6 +60,7 @@ const makeMemoryStore = () => {
     async setJSON(key, value, options = {}) {
       writes += 1;
       if (options.onlyIfNew && record) return { modified: false };
+      successfulWrites += 1;
       record = {
         value: structuredClone(value),
         metadata: options.metadata,
@@ -68,6 +70,9 @@ const makeMemoryStore = () => {
     },
     get writes() {
       return writes;
+    },
+    get successfulWrites() {
+      return successfulWrites;
     }
   };
 };
@@ -116,17 +121,14 @@ const initializationContext = {
   }
 };
 
-const createInitializationRequest = ({
-  secret = INITIALIZATION_SECRET,
-  body = "{}"
-} = {}) => new Request(
+const createInitializationRequest = ({ body = "{}", headers = {} } = {}) => new Request(
   "https://pgd-market.netlify.app/.netlify/functions/initialize-catalog",
   {
     method: "POST",
     headers: {
       Origin: "https://pgd-market.netlify.app",
-      ...(secret ? { "x-catalog-initialization-secret": secret } : {}),
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...headers
     },
     body
   }
@@ -476,23 +478,33 @@ test("one-off function refuses to run without the authorization secret", async (
   assert.equal(catalogReads, 0);
 });
 
-test("one-off function refuses an incorrect authorization secret", async () => {
+test("one-off function requires the server secret but does not require a client secret header", async () => {
+  const fixture = createInitializationFixture();
+  const request = createInitializationRequest();
+  assert.equal(request.headers.has("x-catalog-initialization-secret"), false);
+  const initialized = await fixture.handler(request, fixture.context);
+  assert.equal(initialized.statusCode, 200);
+  assert.deepEqual(JSON.parse(initialized.body), { result: "initialized" });
+
+  const environment = { ...initializationEnvironment };
+  delete environment.CATALOG_INITIALIZATION_SECRET;
   let catalogReads = 0;
-  const fixture = createInitializationFixture({
+  const unconfigured = createInitializationFixture({
+    environment,
     catalogReader: async () => {
       catalogReads += 1;
       throw missingCatalog();
     }
   });
-  const suppliedSecret = "incorrect-initialization-secret-value";
-  const response = await fixture.handler(
-    createInitializationRequest({ secret: suppliedSecret }),
-    fixture.context
+  const response = await unconfigured.handler(
+    createInitializationRequest({
+      headers: { "x-catalog-initialization-secret": "browser-supplied-value" }
+    }),
+    unconfigured.context
   );
 
-  assert.equal(response.statusCode, 401);
+  assert.equal(response.statusCode, 503);
   assert.deepEqual(JSON.parse(response.body), { result: "refused" });
-  assert.equal(response.body.includes(suppliedSecret), false);
   assert.equal(catalogReads, 0);
 });
 
@@ -610,4 +622,5 @@ test("concurrent initialization attempts are serialized by onlyIfNew", async () 
     { status: 200, body: { result: "already_exists" } }
   ].sort((a, b) => a.body.result.localeCompare(b.body.result)));
   assert.equal(store.writes, 2);
+  assert.equal(store.successfulWrites, 1);
 });

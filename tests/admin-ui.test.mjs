@@ -21,6 +21,52 @@ test("catalog management reuses the existing administrator authentication flow",
   assert.doesNotMatch(catalogScript, /const authEndpoint/);
 });
 
+test("catalog initialization is explicit, confirmed, and only available in the admin app", async () => {
+  const [html, uiScript] = await Promise.all([
+    readFile(new URL("../public/admin.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/assets/js/admin-ui.js", import.meta.url), "utf8")
+  ]);
+  assert.match(html, /data-admin-app hidden/);
+  assert.match(html, /data-catalog-initialize[^>]*>Initialiser le catalogue</);
+  assert.match(uiScript, /initializeCatalogButton\?\.addEventListener\("click"/);
+  assert.match(uiScript, /window\.confirm\(/);
+  assert.match(uiScript, /controller\.initializeCatalog\(\)/);
+  assert.doesNotMatch(uiScript, /x-catalog-initialization-secret|CATALOG_INITIALIZATION_SECRET/i);
+});
+
+test("catalog initialization sends only a same-origin POST and handles both successful outcomes", async () => {
+  const calls = [];
+  const results = ["initialized", "already_exists"];
+  const controller = createAdminCatalogController(async (url, options) => {
+    calls.push({ url, options });
+    return response(200, { result: results.shift() }, null);
+  });
+
+  assert.equal(await controller.initializeCatalog(), "initialized");
+  assert.equal(await controller.initializeCatalog(), "already_exists");
+  assert.equal(calls.length, 2);
+  for (const { url, options } of calls) {
+    assert.equal(url, "/.netlify/functions/initialize-catalog");
+    assert.equal(options.method, "POST");
+    assert.equal(options.credentials, "same-origin");
+    assert.equal(options.cache, "no-store");
+    assert.equal(options.body, undefined);
+    assert.equal(options.headers, undefined);
+    assert.doesNotMatch(JSON.stringify(options), /secret|token/i);
+  }
+});
+
+test("catalog initialization reports server refusals as errors", async () => {
+  const controller = createAdminCatalogController(async () =>
+    response(403, { result: "refused" }, null)
+  );
+  await assert.rejects(controller.initializeCatalog(), (error) =>
+    error instanceof AdminCatalogError &&
+    error.status === 403 &&
+    error.message.includes("administrateur")
+  );
+});
+
 const product = (overrides = {}) => ({
   id: "550e8400-e29b-41d4-a716-446655440000",
   name: { fr: "Produit FR", en: "Product EN" },

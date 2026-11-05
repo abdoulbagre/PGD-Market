@@ -1,4 +1,5 @@
 const catalogEndpoint = "/.netlify/functions/catalog";
+const catalogInitializationEndpoint = "/.netlify/functions/initialize-catalog";
 const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
 export class AdminCatalogError extends Error {
@@ -68,6 +69,42 @@ export function createAdminCatalogController(fetchImpl = (...args) => fetch(...a
     const { result, etag: nextEtag } = await request(url);
     etag = nextEtag;
     return { products: result.products, etag };
+  }
+
+  async function initializeCatalog() {
+    let response;
+    try {
+      response = await fetchImpl(catalogInitializationEndpoint, {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store"
+      });
+    } catch {
+      throw new AdminCatalogError(0, "Connexion impossible. Vérifiez votre connexion puis réessayez.");
+    }
+
+    let result;
+    try {
+      result = await response.json();
+    } catch {
+      throw new AdminCatalogError(0, "Le service d’initialisation a renvoyé une réponse illisible.");
+    }
+    if (!response.ok) {
+      const messages = {
+        400: "La requête d’initialisation a été refusée.",
+        401: "Votre session a expiré. Reconnectez-vous pour continuer.",
+        403: "L’initialisation est autorisée uniquement pour un administrateur en production.",
+        503: "L’initialisation du catalogue est indisponible. Vérifiez la configuration serveur puis réessayez."
+      };
+      throw new AdminCatalogError(
+        response.status,
+        messages[response.status] || "Le service d’initialisation n’a pas pu traiter la demande."
+      );
+    }
+    if (!isRecord(result) || !["initialized", "already_exists"].includes(result.result)) {
+      throw new AdminCatalogError(0, "Le service d’initialisation a renvoyé un résultat inattendu.");
+    }
+    return result.result;
   }
 
   function beginEdit(product) {
@@ -141,6 +178,7 @@ export function createAdminCatalogController(fetchImpl = (...args) => fetch(...a
 
   return {
     load,
+    initializeCatalog,
     mutate,
     beginEdit,
     clearEdit,
@@ -155,6 +193,7 @@ function initializeAdminUI() {
   const authView = document.querySelector("[data-admin-auth]");
   const adminApp = document.querySelector("[data-admin-app]");
   const adminMessage = document.querySelector("[data-admin-message]");
+  const initializeCatalogButton = document.querySelector("[data-catalog-initialize]");
   const screens = [...document.querySelectorAll("[data-admin-screen]")];
   const viewButtons = [...document.querySelectorAll("[data-admin-view]")];
   const productList = document.querySelector("[data-products-list]");
@@ -190,6 +229,39 @@ function initializeAdminUI() {
     showView("products");
     void refreshProducts();
   }
+
+  initializeCatalogButton?.addEventListener("click", async () => {
+    if (!window.confirm(
+      "Initialiser le catalogue central à partir des données historiques ? " +
+      "Cette opération ne peut créer le catalogue qu’une seule fois."
+    )) {
+      return;
+    }
+
+    initializeCatalogButton.disabled = true;
+    clearAdminMessage();
+    try {
+      const result = await controller.initializeCatalog();
+      if (result === "initialized") {
+        await refreshProducts();
+        showAdminMessage("Catalogue initialisé avec succès.", "success");
+        return;
+      }
+      showAdminMessage("Le catalogue existe déjà. Aucune modification n’a été effectuée.", "info");
+    } catch (error) {
+      if (error instanceof AdminCatalogError && error.status === 401) {
+        setAuthenticated(false);
+        document.dispatchEvent(new CustomEvent("admin:session-expired"));
+      } else {
+        showAdminMessage(
+          error.message || "L’initialisation du catalogue a échoué.",
+          "error"
+        );
+      }
+    } finally {
+      initializeCatalogButton.disabled = false;
+    }
+  });
 
   function showView(name, { loadData = true } = {}) {
     currentView = name;

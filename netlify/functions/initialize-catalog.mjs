@@ -1,4 +1,3 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { createRequire } from "node:module";
 import { AuthAccessError, requireAdmin } from "./_auth.mjs";
 import { verifyRequestOrigin } from "@netlify/identity";
@@ -12,8 +11,6 @@ const EXPECTED_SITE_ID = "2e63bd1a-3d35-4bcb-b572-4d8b22e70bbf";
 const EXPECTED_SITE_NAME = "pgd-market";
 const EXPECTED_SITE_HOST = "pgd-market.netlify.app";
 const AUTHORIZATION_SECRET_NAME = "CATALOG_INITIALIZATION_SECRET";
-// This one-off endpoint is server-to-server only; never embed this secret in frontend code.
-const AUTHORIZATION_HEADER = "x-catalog-initialization-secret";
 const MAX_REQUEST_BODY_BYTES = 1024;
 const MAX_LEGACY_SOURCE_BYTES = 1024 * 1024;
 const require = createRequire(import.meta.url);
@@ -73,22 +70,17 @@ const isProductionSite = (context, environment) => {
   return true;
 };
 
-const isAuthorizedWithSecret = (request, environment) => {
+const hasInitializationSecret = (environment) => {
   const expectedSecret = environment[AUTHORIZATION_SECRET_NAME];
-  const suppliedSecret = request.headers.get(AUTHORIZATION_HEADER);
   if (
     typeof expectedSecret !== "string" ||
     expectedSecret.length < 32 ||
-    expectedSecret.trim() !== expectedSecret ||
-    !suppliedSecret ||
-    suppliedSecret.length > 4096
+    expectedSecret.trim() !== expectedSecret
   ) {
     return false;
   }
 
-  const expectedDigest = createHash("sha256").update(expectedSecret).digest();
-  const suppliedDigest = createHash("sha256").update(suppliedSecret).digest();
-  return timingSafeEqual(expectedDigest, suppliedDigest);
+  return true;
 };
 
 const hasEmptyPayload = async (request) => {
@@ -176,8 +168,8 @@ export function createCatalogInitializationHandler({
       return response(status, "refused");
     }
 
-    if (!isAuthorizedWithSecret(request, environment)) {
-      return response(environment[AUTHORIZATION_SECRET_NAME] ? 401 : 503, "refused");
+    if (!hasInitializationSecret(environment)) {
+      return response(503, "refused");
     }
     if (!isProductionSite(context, environment)) {
       return response(403, "refused");
