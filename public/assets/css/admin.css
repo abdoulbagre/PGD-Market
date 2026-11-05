@@ -271,6 +271,13 @@ select {
   gap: 8px;
 }
 
+.admin-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .admin-navigation .button {
   min-height: 40px;
 }
@@ -494,6 +501,14 @@ select {
 
   .admin-product-actions .button {
     flex: 1 1 45%;
+  }
+
+  .admin-products-heading {
+    flex-wrap: wrap;
+  }
+
+  .admin-header-actions {
+    width: 100%;
   }
 
   .admin-editor-grid {
