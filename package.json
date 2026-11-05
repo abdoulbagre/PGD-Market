@@ -22,8 +22,8 @@
   },
   "homepage": "https://github.com/abdoulbagre/PGD-Biblio#readme",
   "dependencies": {
+    "@netlify/blobs": "11.1.7",
     "@netlify/identity": "^2.0.0",
-    "express": "^5.2.1",
     "pdf-lib": "^1.17.1"
   }
 }

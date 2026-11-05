@@ -1,3 +1,5 @@
+import { setAuthenticated } from "./admin-ui.js";
+
 const endpoint = "/.netlify/functions/auth";
 const loginForm = document.querySelector("#login-form");
 const recoveryRequestForm = document.querySelector("#recovery-request-form");
@@ -8,7 +10,7 @@ const authMessage = document.querySelector("#auth-message");
 const authTitle = document.querySelector("#auth-title");
 const authDescription = document.querySelector("#auth-description");
 const forgotPasswordButton = document.querySelector("#forgot-password");
-const logoutButton = document.querySelector("#logout-button");
+const logoutButtons = [...document.querySelectorAll("#logout-button, [data-logout]")];
 let pendingToken = "";
 let pendingFlow = "";
 
@@ -27,6 +29,7 @@ function showForm(form) {
 }
 
 function showLogin() {
+  setAuthenticated(false);
   pendingToken = "";
   pendingFlow = "";
   authTitle.textContent = "Connexion administrateur";
@@ -45,6 +48,7 @@ function showPasswordForm(flow, token) {
 }
 
 function showSession(isAdmin) {
+  setAuthenticated(isAdmin);
   loginForm.hidden = true;
   recoveryRequestForm.hidden = true;
   newPasswordForm.hidden = true;
@@ -52,9 +56,14 @@ function showSession(isAdmin) {
   sessionMessage.textContent = isAdmin
     ? "Session administrateur active."
     : "Ce compte est connecté, mais ne possède pas le rôle administrateur.";
-  logoutButton.hidden = false;
+  logoutButtons.forEach((button) => { button.hidden = false; });
   showMessage(isAdmin ? "Accès autorisé." : "Accès refusé : rôle administrateur absent.", isAdmin ? "success" : "error");
 }
+
+document.addEventListener("admin:session-expired", () => {
+  showLogin();
+  showMessage("Votre session a expiré. Connectez-vous à nouveau.", "error");
+});
 
 async function sendRequest(action, values = {}) {
   const response = await fetch(endpoint, {
@@ -170,18 +179,23 @@ newPasswordForm.addEventListener("submit", async (event) => {
   }
 });
 
-logoutButton.addEventListener("click", async () => {
-  logoutButton.disabled = true;
-  showMessage("Déconnexion en cours…");
-  try {
-    await sendRequest("logout");
-    showLogin();
-    showMessage("Vous êtes déconnecté.", "success");
-  } catch (error) {
-    showMessage(error.message || "La déconnexion n’a pas abouti.", "error");
-  } finally {
-    logoutButton.disabled = false;
-  }
+logoutButtons.forEach((logoutButton) => {
+  logoutButton.addEventListener("click", async () => {
+    logoutButtons.forEach((button) => { button.disabled = true; });
+    showMessage("Déconnexion en cours…");
+    try {
+      await sendRequest("logout");
+      if (typeof window.clearAdminCatalogState === "function") {
+        window.clearAdminCatalogState();
+      }
+      showLogin();
+      showMessage("Vous êtes déconnecté.", "success");
+    } catch (error) {
+      showMessage(error.message || "La déconnexion n’a pas abouti.", "error");
+    } finally {
+      logoutButtons.forEach((button) => { button.disabled = false; });
+    }
+  });
 });
 
 const callbackParams = new URLSearchParams(window.location.hash.slice(1));
