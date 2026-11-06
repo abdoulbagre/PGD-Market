@@ -15,15 +15,15 @@ const MAX_REQUEST_BODY_BYTES = 1024;
 const MAX_LEGACY_SOURCE_BYTES = 1024 * 1024;
 const require = createRequire(import.meta.url);
 
-const jsonResponse = (statusCode, body) => ({
-  statusCode,
-  headers: {
-    "Cache-Control": "no-store",
-    "Content-Type": "application/json; charset=utf-8",
-    "X-Content-Type-Options": "nosniff"
-  },
-  body: JSON.stringify(body)
-});
+const jsonResponse = (status, body) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+      "Content-Type": "application/json; charset=utf-8",
+      "X-Content-Type-Options": "nosniff"
+    }
+  });
 
 const response = (statusCode, result) =>
   jsonResponse(statusCode, { result });
