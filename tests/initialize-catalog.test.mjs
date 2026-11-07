@@ -580,6 +580,24 @@ test("production guard diagnostics log only a fixed non-sensitive reason", async
   assert.equal(fixture.store.writes, 0);
 });
 
+test("production context does not depend on build-only environment context variables", async () => {
+  const guardLogs = [];
+  const environment = { ...initializationEnvironment };
+  delete environment.CONTEXT;
+  delete environment.NETLIFY_SITE_ID;
+  const fixture = createInitializationFixture({
+    environment,
+    logGuard: (code) => guardLogs.push(code)
+  });
+  const response = await fixture.handler(createInitializationRequest({
+    body: JSON.stringify({ diagnostic: "stop-before-write" })
+  }), fixture.context);
+
+  assert.equal(response.status, 400);
+  assert.equal(guardLogs.length, 0);
+  assert.equal(fixture.store.writes, 0);
+});
+
 test("one-off function initializes only from server-loaded legacy data", async () => {
   const fixture = createInitializationFixture();
   const response = await fixture.handler(createInitializationRequest({

@@ -54,9 +54,7 @@ const getProductionSiteFailure = (context, environment) => {
   ) {
     return "TARGET_CONFIGURATION_MISMATCH";
   }
-  if (environment.CONTEXT !== "production") return "ENV_CONTEXT_NOT_PRODUCTION";
   if (context?.deploy?.context !== "production") return "DEPLOY_CONTEXT_NOT_PRODUCTION";
-  if (environment.NETLIFY_SITE_ID !== EXPECTED_SITE_ID) return "ENV_SITE_ID_MISMATCH";
   if (site?.id !== EXPECTED_SITE_ID) return "CONTEXT_SITE_ID_MISMATCH";
   if (typeof blobsContextValue !== "string") return "BLOBS_CONTEXT_MISSING";
 
