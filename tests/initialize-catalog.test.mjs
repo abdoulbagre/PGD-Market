@@ -9,6 +9,7 @@ import {
 } from "../scripts/initialize-catalog.mjs";
 import {
   CatalogStorageError,
+  initializeCatalog,
   initializeCatalogFromLegacy,
   readCatalog
 } from "../netlify/functions/_catalog.mjs";
@@ -106,6 +107,7 @@ const corruptCatalog = () =>
 const INITIALIZATION_SECRET = "test-only-initialization-secret-32";
 const initializationEnvironment = {
   CONTEXT: "production",
+  NETLIFY_SITE_ID: "2e63bd1a-3d35-4bcb-b572-4d8b22e70bbf",
   CATALOG_INITIALIZATION_SECRET: INITIALIZATION_SECRET,
   NETLIFY_BLOBS_CONTEXT: Buffer.from(JSON.stringify({
     siteID: "2e63bd1a-3d35-4bcb-b572-4d8b22e70bbf",
@@ -121,7 +123,10 @@ const initializationContext = {
   }
 };
 
-const createInitializationRequest = ({ body = "{}", headers = {} } = {}) => new Request(
+const createInitializationRequest = ({
+  body = "{}",
+  headers = {}
+} = {}) => new Request(
   "https://pgd-market.netlify.app/.netlify/functions/initialize-catalog",
   {
     method: "POST",
@@ -141,8 +146,9 @@ const createInitializationFixture = ({
   authorizeAdmin = async () => ({ roles: ["admin"] }),
   verifyOrigin = () => {},
   catalogReader = () => readCatalog({ store }),
-  initialize = (data) => initializeCatalogFromLegacy(data, { store }),
-  loadLegacyData: loadData = async () => legacyData
+  initialize = (catalog) => initializeCatalog(catalog, { store }),
+  loadLegacyData: loadData = async () => legacyData,
+  logGuard = () => {}
 } = {}) => {
   const handler = createCatalogInitializationHandler({
     authorizeAdmin,
@@ -150,7 +156,8 @@ const createInitializationFixture = ({
     catalogReader,
     initialize,
     loadLegacyData: loadData,
-    environment
+    environment,
+    logGuard
   });
   return { handler, store, context };
 };
@@ -413,22 +420,23 @@ test("one-off function refuses unauthenticated callers before catalog access", a
   });
   const response = await handler(createInitializationRequest(), fixture.context);
 
-  assert.equal(response.statusCode, 401);
-  assert.deepEqual(JSON.parse(response.body), { result: "refused" });
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { result: "refused" });
   assert.equal(catalogReads, 0);
 });
 
 test("one-off function rejects non-production or mismatched site context", async (t) => {
-  for (const [label, context] of [
-    ["deploy context", { ...initializationContext, deploy: { context: "deploy-preview" } }],
-    ["site ID", { ...initializationContext, site: { ...initializationContext.site, id: "wrong-site" } }],
+  for (const [label, context, guardCode] of [
+    ["deploy context", { ...initializationContext, deploy: { context: "deploy-preview" } }, "DEPLOY_CONTEXT_NOT_PRODUCTION"],
+    ["site ID", { ...initializationContext, site: { ...initializationContext.site, id: "wrong-site" } }, "CONTEXT_SITE_ID_MISMATCH"],
     ["Blobs site ID", {
       ...initializationContext,
       site: initializationContext.site
-    }]
+    }, "BLOBS_SITE_ID_MISMATCH"]
   ]) {
     await t.test(label, async () => {
       let catalogReads = 0;
+      const guardLogs = [];
       const environment = label === "Blobs site ID"
         ? {
             ...initializationEnvironment,
@@ -446,12 +454,15 @@ test("one-off function rejects non-production or mismatched site context", async
           catalogReads += 1;
           throw missingCatalog();
         },
-        environment
+        environment,
+        logGuard: (code) => guardLogs.push(code)
       });
       const response = await handler(createInitializationRequest(), context);
 
-      assert.equal(response.statusCode, 403);
-      assert.deepEqual(JSON.parse(response.body), { result: "refused" });
+      assert.equal(response.status, 403);
+      assert.equal(response.headers.has("X-Initialization-Guard"), false);
+      assert.deepEqual(await response.json(), { result: "refused" });
+      assert.deepEqual(guardLogs, [guardCode]);
       assert.equal(catalogReads, 0);
       assert.equal(fixture.store.writes, 0);
     });
@@ -473,8 +484,8 @@ test("one-off function refuses to run without the authorization secret", async (
   });
   const response = await handler(createInitializationRequest(), initializationContext);
 
-  assert.equal(response.statusCode, 503);
-  assert.deepEqual(JSON.parse(response.body), { result: "refused" });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { result: "refused" });
   assert.equal(catalogReads, 0);
 });
 
@@ -483,8 +494,8 @@ test("one-off function requires the server secret but does not require a client 
   const request = createInitializationRequest();
   assert.equal(request.headers.has("x-catalog-initialization-secret"), false);
   const initialized = await fixture.handler(request, fixture.context);
-  assert.equal(initialized.statusCode, 200);
-  assert.deepEqual(JSON.parse(initialized.body), { result: "initialized" });
+  assert.equal(initialized.status, 200);
+  assert.deepEqual(await initialized.json(), { result: "initialized" });
 
   const environment = { ...initializationEnvironment };
   delete environment.CATALOG_INITIALIZATION_SECRET;
@@ -503,14 +514,16 @@ test("one-off function requires the server secret but does not require a client 
     unconfigured.context
   );
 
-  assert.equal(response.statusCode, 503);
-  assert.deepEqual(JSON.parse(response.body), { result: "refused" });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { result: "refused" });
   assert.equal(catalogReads, 0);
 });
 
 test("one-off function refuses authenticated non-admin users", async () => {
   let catalogReads = 0;
+  const guardLogs = [];
   const fixture = createInitializationFixture({
+    logGuard: (code) => guardLogs.push(code),
     authorizeAdmin: async () => {
       throw Object.assign(new Error("not an admin"), { status: 403 });
     },
@@ -521,14 +534,18 @@ test("one-off function refuses authenticated non-admin users", async () => {
   });
   const response = await fixture.handler(createInitializationRequest(), fixture.context);
 
-  assert.equal(response.statusCode, 403);
-  assert.deepEqual(JSON.parse(response.body), { result: "refused" });
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.has("X-Initialization-Guard"), false);
+  assert.deepEqual(await response.json(), { result: "refused" });
+  assert.deepEqual(guardLogs, ["ADMIN_AUTH_FORBIDDEN"]);
   assert.equal(catalogReads, 0);
 });
 
 test("one-off function refuses requests from an unauthorized Origin", async () => {
   let catalogReads = 0;
+  const guardLogs = [];
   const fixture = createInitializationFixture({
+    logGuard: (code) => guardLogs.push(code),
     verifyOrigin: () => {
       throw Object.assign(new Error("origin refused"), { status: 403 });
     },
@@ -539,9 +556,28 @@ test("one-off function refuses requests from an unauthorized Origin", async () =
   });
   const response = await fixture.handler(createInitializationRequest(), fixture.context);
 
-  assert.equal(response.statusCode, 403);
-  assert.deepEqual(JSON.parse(response.body), { result: "refused" });
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.has("X-Initialization-Guard"), false);
+  assert.deepEqual(await response.json(), { result: "refused" });
+  assert.deepEqual(guardLogs, ["ORIGIN_REJECTED"]);
   assert.equal(catalogReads, 0);
+});
+
+test("production guard diagnostics log only a fixed non-sensitive reason", async () => {
+  const guardLogs = [];
+  const fixture = createInitializationFixture({
+    context: {
+      ...initializationContext,
+      site: { ...initializationContext.site, id: "wrong-site" }
+    },
+    logGuard: (code) => guardLogs.push(code)
+  });
+  const response = await fixture.handler(createInitializationRequest(), fixture.context);
+
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.has("X-Initialization-Guard"), false);
+  assert.deepEqual(guardLogs, ["CONTEXT_SITE_ID_MISMATCH"]);
+  assert.equal(fixture.store.writes, 0);
 });
 
 test("one-off function initializes only from server-loaded legacy data", async () => {
@@ -550,13 +586,13 @@ test("one-off function initializes only from server-loaded legacy data", async (
     body: JSON.stringify({ products: [{ price: 1, chariowProductId: "browser-value" }] })
   }), fixture.context);
 
-  assert.equal(response.statusCode, 400);
-  assert.deepEqual(JSON.parse(response.body), { result: "refused" });
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { result: "refused" });
   assert.equal(fixture.store.writes, 0);
 
   const initialized = await fixture.handler(createInitializationRequest(), fixture.context);
-  assert.equal(initialized.statusCode, 200);
-  assert.deepEqual(JSON.parse(initialized.body), { result: "initialized" });
+  assert.equal(initialized.status, 200);
+  assert.deepEqual(await initialized.json(), { result: "initialized" });
   assert.equal(fixture.store.writes, 1);
   assert.equal((await readCatalog({ store: fixture.store })).catalog.products.length, 2);
 });
@@ -567,8 +603,8 @@ test("one-off function refuses when the server-side legacy sources are unavailab
   });
   const response = await fixture.handler(createInitializationRequest(), fixture.context);
 
-  assert.equal(response.statusCode, 503);
-  assert.deepEqual(JSON.parse(response.body), { result: "refused" });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { result: "refused" });
   assert.equal(fixture.store.writes, 0);
 });
 
@@ -578,8 +614,8 @@ test("one-off function refuses when server-side source loading fails", async () 
   });
   const response = await fixture.handler(createInitializationRequest(), fixture.context);
 
-  assert.equal(response.statusCode, 503);
-  assert.deepEqual(JSON.parse(response.body), { result: "refused" });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { result: "refused" });
   assert.equal(fixture.store.writes, 0);
 });
 
@@ -589,8 +625,8 @@ test("one-off function reports an existing catalog and never overwrites it", asy
   const fixture = createInitializationFixture({ store });
   const response = await fixture.handler(createInitializationRequest(), fixture.context);
 
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), { result: "already_exists" });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { result: "already_exists" });
   assert.equal(fixture.store.writes, 1);
 });
 
@@ -603,19 +639,22 @@ test("concurrent initialization attempts are serialized by onlyIfNew", async () 
   });
   const catalogReader = async () => {
     readers += 1;
-    if (readers === 2) bothReadersStarted();
-    await readersReady;
-    throw missingCatalog();
+    if (readers <= 2) {
+      if (readers === 2) bothReadersStarted();
+      await readersReady;
+      throw missingCatalog();
+    }
+    return readCatalog({ store });
   };
   const fixture = createInitializationFixture({ store, catalogReader });
   const responses = await Promise.all([
     fixture.handler(createInitializationRequest(), fixture.context),
     fixture.handler(createInitializationRequest(), fixture.context)
   ]);
-  const results = responses.map((item) => ({
-    status: item.statusCode,
-    body: JSON.parse(item.body)
-  })).sort((a, b) => a.body.result.localeCompare(b.body.result));
+  const results = await Promise.all(responses.map(async (item) => ({
+    status: item.status,
+    body: await item.json()
+  }))).then((items) => items.sort((a, b) => a.body.result.localeCompare(b.body.result)));
 
   assert.deepEqual(results, [
     { status: 200, body: { result: "initialized" } },
