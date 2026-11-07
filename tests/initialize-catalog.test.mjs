@@ -460,7 +460,7 @@ test("one-off function rejects non-production or mismatched site context", async
       const response = await handler(createInitializationRequest(), context);
 
       assert.equal(response.status, 403);
-      assert.equal(response.headers.has("X-Initialization-Guard"), false);
+      assert.equal(response.headers.get("X-Initialization-Guard"), guardCode);
       assert.deepEqual(await response.json(), { result: "refused" });
       assert.deepEqual(guardLogs, [guardCode]);
       assert.equal(catalogReads, 0);
@@ -575,7 +575,7 @@ test("production guard diagnostics log only a fixed non-sensitive reason", async
   const response = await fixture.handler(createInitializationRequest(), fixture.context);
 
   assert.equal(response.status, 403);
-  assert.equal(response.headers.has("X-Initialization-Guard"), false);
+  assert.equal(response.headers.get("X-Initialization-Guard"), "CONTEXT_SITE_ID_MISMATCH");
   assert.deepEqual(guardLogs, ["CONTEXT_SITE_ID_MISMATCH"]);
   assert.equal(fixture.store.writes, 0);
 });

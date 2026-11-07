@@ -30,18 +30,19 @@ const MAX_REQUEST_BODY_BYTES = 1024;
 const MAX_LEGACY_SOURCE_BYTES = 1024 * 1024;
 const require = createRequire(import.meta.url);
 
-const jsonResponse = (status, body) =>
+const jsonResponse = (status, body, guardCode) =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
       "Cache-Control": "no-store",
       "Content-Type": "application/json; charset=utf-8",
-      "X-Content-Type-Options": "nosniff"
+      "X-Content-Type-Options": "nosniff",
+      ...(guardCode ? { "X-Initialization-Guard": guardCode } : {})
     }
   });
 
-const response = (statusCode, result) =>
-  jsonResponse(statusCode, { result });
+const response = (statusCode, result, guardCode) =>
+  jsonResponse(statusCode, { result }, guardCode);
 
 const getProductionSiteFailure = (context, environment) => {
   const site = context?.site;
@@ -283,7 +284,7 @@ export function createCatalogInitializationHandler({
     const productionSiteFailure = getProductionSiteFailure(context, environment);
     if (productionSiteFailure) {
       logGuard(productionSiteFailure);
-      return response(403, "refused");
+      return response(403, "refused", productionSiteFailure);
     }
     if (!(await hasEmptyPayload(request))) {
       return response(400, "refused");
