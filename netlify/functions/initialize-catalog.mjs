@@ -30,19 +30,18 @@ const MAX_REQUEST_BODY_BYTES = 1024;
 const MAX_LEGACY_SOURCE_BYTES = 1024 * 1024;
 const require = createRequire(import.meta.url);
 
-const jsonResponse = (status, body, guardCode) =>
+const jsonResponse = (status, body) =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
       "Cache-Control": "no-store",
       "Content-Type": "application/json; charset=utf-8",
-      "X-Content-Type-Options": "nosniff",
-      ...(guardCode ? { "X-Initialization-Guard": guardCode } : {})
+      "X-Content-Type-Options": "nosniff"
     }
   });
 
-const response = (statusCode, result, guardCode) =>
-  jsonResponse(statusCode, { result }, guardCode);
+const response = (statusCode, result) =>
+  jsonResponse(statusCode, { result });
 
 const getProductionSiteFailure = (context, environment) => {
   const site = context?.site;
@@ -237,8 +236,7 @@ export function createCatalogInitializationHandler({
   initialize = initializeCatalog,
   loadLegacyData = readLegacyData,
   fetchImpl = (...args) => fetch(...args),
-  environment = process.env,
-  logGuard = (code) => console.warn("CATALOG_INITIALIZATION_GUARD", code)
+  environment = process.env
 } = {}) {
   return async function initializeCatalogHandler(request, context) {
     if (request.method !== "POST") {
@@ -251,13 +249,11 @@ export function createCatalogInitializationHandler({
       const status = error instanceof AuthAccessError
         ? error.status
         : error?.status === 403 ? 403 : 401;
-      logGuard(status === 403 ? "ORIGIN_REJECTED" : "ORIGIN_CHECK_FAILED");
       return response(status, "refused");
     }
 
     try {
       if (!(await authorizeAdmin())) {
-        logGuard("ADMIN_NOT_AUTHENTICATED");
         return response(401, "refused");
       }
     } catch (error) {
@@ -271,18 +267,15 @@ export function createCatalogInitializationHandler({
             ? "AUTHENTICATION_REQUIRED"
             : "AUTH_UNAVAILABLE"
         : status === 403 ? "ADMIN_AUTH_FORBIDDEN" : "ADMIN_AUTH_FAILED";
-      logGuard(guardCode);
       return response(status, "refused");
     }
 
     if (!hasInitializationSecret(environment)) {
-      logGuard("INITIALIZATION_SECRET_MISSING");
       return response(503, "refused");
     }
     const productionSiteFailure = getProductionSiteFailure(context, environment);
     if (productionSiteFailure) {
-      logGuard(productionSiteFailure);
-      return response(403, "refused", productionSiteFailure);
+      return response(403, "refused");
     }
     if (!(await hasEmptyPayload(request))) {
       return response(400, "refused");

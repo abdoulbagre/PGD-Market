@@ -147,8 +147,7 @@ const createInitializationFixture = ({
   verifyOrigin = () => {},
   catalogReader = () => readCatalog({ store }),
   initialize = (catalog) => initializeCatalog(catalog, { store }),
-  loadLegacyData: loadData = async () => legacyData,
-  logGuard = () => {}
+  loadLegacyData: loadData = async () => legacyData
 } = {}) => {
   const handler = createCatalogInitializationHandler({
     authorizeAdmin,
@@ -156,8 +155,7 @@ const createInitializationFixture = ({
     catalogReader,
     initialize,
     loadLegacyData: loadData,
-    environment,
-    logGuard
+    environment
   });
   return { handler, store, context };
 };
@@ -426,17 +424,16 @@ test("one-off function refuses unauthenticated callers before catalog access", a
 });
 
 test("one-off function rejects non-production or mismatched site context", async (t) => {
-  for (const [label, context, guardCode] of [
-    ["deploy context", { ...initializationContext, deploy: { context: "deploy-preview" } }, "DEPLOY_CONTEXT_NOT_PRODUCTION"],
-    ["site ID", { ...initializationContext, site: { ...initializationContext.site, id: "wrong-site" } }, "CONTEXT_SITE_ID_MISMATCH"],
+  for (const [label, context] of [
+    ["deploy context", { ...initializationContext, deploy: { context: "deploy-preview" } }],
+    ["site ID", { ...initializationContext, site: { ...initializationContext.site, id: "wrong-site" } }],
     ["Blobs site ID", {
       ...initializationContext,
       site: initializationContext.site
-    }, "BLOBS_SITE_ID_MISMATCH"]
+    }]
   ]) {
     await t.test(label, async () => {
       let catalogReads = 0;
-      const guardLogs = [];
       const environment = label === "Blobs site ID"
         ? {
             ...initializationEnvironment,
@@ -454,15 +451,13 @@ test("one-off function rejects non-production or mismatched site context", async
           catalogReads += 1;
           throw missingCatalog();
         },
-        environment,
-        logGuard: (code) => guardLogs.push(code)
+        environment
       });
       const response = await handler(createInitializationRequest(), context);
 
       assert.equal(response.status, 403);
-      assert.equal(response.headers.get("X-Initialization-Guard"), guardCode);
+      assert.equal(response.headers.has("X-Initialization-Guard"), false);
       assert.deepEqual(await response.json(), { result: "refused" });
-      assert.deepEqual(guardLogs, [guardCode]);
       assert.equal(catalogReads, 0);
       assert.equal(fixture.store.writes, 0);
     });
@@ -521,9 +516,7 @@ test("one-off function requires the server secret but does not require a client 
 
 test("one-off function refuses authenticated non-admin users", async () => {
   let catalogReads = 0;
-  const guardLogs = [];
   const fixture = createInitializationFixture({
-    logGuard: (code) => guardLogs.push(code),
     authorizeAdmin: async () => {
       throw Object.assign(new Error("not an admin"), { status: 403 });
     },
@@ -537,15 +530,12 @@ test("one-off function refuses authenticated non-admin users", async () => {
   assert.equal(response.status, 403);
   assert.equal(response.headers.has("X-Initialization-Guard"), false);
   assert.deepEqual(await response.json(), { result: "refused" });
-  assert.deepEqual(guardLogs, ["ADMIN_AUTH_FORBIDDEN"]);
   assert.equal(catalogReads, 0);
 });
 
 test("one-off function refuses requests from an unauthorized Origin", async () => {
   let catalogReads = 0;
-  const guardLogs = [];
   const fixture = createInitializationFixture({
-    logGuard: (code) => guardLogs.push(code),
     verifyOrigin: () => {
       throw Object.assign(new Error("origin refused"), { status: 403 });
     },
@@ -559,42 +549,33 @@ test("one-off function refuses requests from an unauthorized Origin", async () =
   assert.equal(response.status, 403);
   assert.equal(response.headers.has("X-Initialization-Guard"), false);
   assert.deepEqual(await response.json(), { result: "refused" });
-  assert.deepEqual(guardLogs, ["ORIGIN_REJECTED"]);
   assert.equal(catalogReads, 0);
 });
 
-test("production guard diagnostics log only a fixed non-sensitive reason", async () => {
-  const guardLogs = [];
+test("production guard rejects a mismatched site without diagnostic details", async () => {
   const fixture = createInitializationFixture({
     context: {
       ...initializationContext,
       site: { ...initializationContext.site, id: "wrong-site" }
-    },
-    logGuard: (code) => guardLogs.push(code)
+    }
   });
   const response = await fixture.handler(createInitializationRequest(), fixture.context);
 
   assert.equal(response.status, 403);
-  assert.equal(response.headers.get("X-Initialization-Guard"), "CONTEXT_SITE_ID_MISMATCH");
-  assert.deepEqual(guardLogs, ["CONTEXT_SITE_ID_MISMATCH"]);
+  assert.equal(response.headers.has("X-Initialization-Guard"), false);
   assert.equal(fixture.store.writes, 0);
 });
 
 test("production context does not depend on build-only environment context variables", async () => {
-  const guardLogs = [];
   const environment = { ...initializationEnvironment };
   delete environment.CONTEXT;
   delete environment.NETLIFY_SITE_ID;
-  const fixture = createInitializationFixture({
-    environment,
-    logGuard: (code) => guardLogs.push(code)
-  });
+  const fixture = createInitializationFixture({ environment });
   const response = await fixture.handler(createInitializationRequest({
     body: JSON.stringify({ diagnostic: "stop-before-write" })
   }), fixture.context);
 
   assert.equal(response.status, 400);
-  assert.equal(guardLogs.length, 0);
   assert.equal(fixture.store.writes, 0);
 });
 
