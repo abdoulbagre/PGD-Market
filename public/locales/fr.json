@@ -1,14 +1,26 @@
 {
-    "siteName": "PGD DIGITAL",
+    "siteName": "PGD Market",
     "titles": {
-        "home": "PGD DIGITAL",
-        "shop": "Boutique | PGD DIGITAL",
-        "product": "Produit | PGD DIGITAL",
-        "checkout": "Commande | PGD DIGITAL",
-        "cart": "Panier | PGD DIGITAL",
-        "contact": "Contact | PGD DIGITAL",
-        "legal": "Mentions légales | PGD DIGITAL",
-        "privacy": "Confidentialité | PGD DIGITAL"
+        "home": "PGD Market | Guides numériques pratiques",
+        "shop": "Boutique | PGD Market",
+        "product": "Produit | PGD Market",
+        "checkout": "Commande | PGD Market",
+        "cart": "Panier | PGD Market",
+        "contact": "Contact | PGD Market",
+        "legal": "Mentions légales | PGD Market",
+        "privacy": "Confidentialité | PGD Market"
+    },
+    "extra": {
+        "reviewsEyebrow": "Retours clients",
+        "reviewsTitle": "Ce que pensent nos clients",
+        "reviewsEmpty": "Les avis clients seront affichés ici lorsqu’ils seront disponibles.",
+        "successEyebrow": "Paiement confirmé",
+        "successTitle": "Paiement réussi | PGD Market",
+        "successText": "Votre paiement a été traité. Si votre produit est disponible, suivez les instructions de téléchargement reçues.",
+        "cancelEyebrow": "Paiement interrompu",
+        "cancelTitle": "Paiement annulé | PGD Market",
+        "cancelText": "Votre paiement n’a pas été finalisé. Vous pouvez revenir à la boutique et réessayer.",
+        "backShop": "Retour à la boutique"
     },
     "navigation": {
         "home": "Accueil",
@@ -20,19 +32,15 @@
         "closeMenu": "Fermer le menu",
         "mainNavigation": "Navigation principale",
         "cartCount": "Nombre d’articles dans le panier",
-        "brandHome": "PGD DIGITAL - Accueil",
-        "language": "Langue"
-    },
-    "language": {
-        "french": "🇫🇷 Français",
-        "english": "🇬🇧 English"
+        "brandHome": "PGD Market - Accueil"
     },
     "home": {
         "eyebrow": "Bibliothèque numérique PGD",
-        "title": "Des ressources utiles pour passer à l’action.",
-        "description": "Découvrez des guides numériques sélectionnés pour apprendre, créer et développer vos projets.",
-        "cta": "Découvrir la boutique",
-        "viewProducts": "Voir les produits",
+        "title": "Des ressources utiles",
+        "titleAccent": "pour passer à l’action.",
+        "description": "Des guides numériques pratiques pour apprendre, créer et développer vos projets, à votre rythme.",
+        "cta": "Explorer la boutique",
+        "viewProducts": "Voir les ressources",
         "sectionEyebrow": "À découvrir",
         "sectionTitle": "Nos ressources",
         "viewAll": "Voir toute la boutique →",
@@ -48,7 +56,7 @@
         "faqBuyText": "Ouvrez sa fiche, puis complétez le formulaire de commande avec votre nom et votre adresse email.",
         "faqDelivery": "Quand recevrai-je mon produit ?",
         "faqDeliveryText": "Les produits disponibles sont numériques. Après validation du paiement, la page de résultat permet d’accéder au téléchargement.",
-        "faqContact": "Comment contacter PGD DIGITAL ?",
+        "faqContact": "Comment contacter PGD Market ?",
         "faqContactText": "Notre équipe est joignable via la page contact."
     },
     "shop": {
@@ -103,7 +111,7 @@
         "email": "Adresse email",
         "nameRequired": "Veuillez saisir votre nom.",
         "emailInvalid": "Veuillez saisir une adresse email valide.",
-        "pay": "Continuer vers le paiement",
+        "pay": "Continuer vers Chariow",
         "unavailableTitle": "Produit indisponible",
         "unavailableText": "Ce produit ne peut pas être commandé actuellement.",
         "preparing": "Préparation du paiement...",
@@ -155,7 +163,7 @@
         "sharing": "Nous ne vendons, n’échangeons et ne partageons pas vos données personnelles à des fins commerciales."
     },
     "footer": {
-        "description": "Une bibliothèque de ressources numériques sélectionnées.",
+        "description": "Une sélection de ressources numériques pratiques.",
         "information": "Informations",
         "privacy": "Confidentialité",
         "copyright": "© 2026 PGD DIGITAL. Tous droits réservés."

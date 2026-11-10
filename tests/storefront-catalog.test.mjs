@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -14,8 +15,8 @@ const [{ CatalogLoadError, createCatalogClient, isPublicProduct }, currency] = a
 
 const product = (overrides = {}) => ({
   id: "550e8400-e29b-41d4-a716-446655440000",
-  name: { fr: "Produit FR", en: "Product EN" },
-  description: { fr: "Description FR<br>suite", en: "English description<br>more" },
+  name: "Produit FR",
+  description: "Description FR<br>suite",
   price: 4200,
   currency: "XOF",
   image: "assets/images/1.jpg",
@@ -34,6 +35,13 @@ const catalogResponse = (products = [product()]) => new Response(JSON.stringify(
 
 test("public catalog validates the real projected shape and excludes internal fields", () => {
   assert.equal(isPublicProduct(product()), true);
+  assert.equal(isPublicProduct(product({
+    name: { fr: "Nom français historique", en: "Legacy English name" },
+    description: {
+      fr: "Description française historique",
+      en: "Legacy English description"
+    }
+  })), true);
   assert.equal(isPublicProduct(product({ chariowProductId: "prd_private" })), false);
   assert.equal(isPublicProduct(product({ files: ["delivery.pdf"] })), false);
   assert.equal(isPublicProduct(product({ price: "4200" })), false);
@@ -140,24 +148,25 @@ test("storefront pages use catalog data and payment request omits amount and Cha
   assert.match(app, /data-catalog-retry/);
 });
 
-test("French and English locales retain historical product resources and add catalog states", async () => {
-  const [fr, en] = await Promise.all([
+test("the storefront uses French text only and has no English locale dependency", async () => {
+  const [fr, app, frenchModule] = await Promise.all([
     readFile(new URL("../public/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
-    readFile(new URL("../public/locales/en.json", import.meta.url), "utf8").then(JSON.parse)
+    readFile(new URL("../public/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/assets/js/french.js", import.meta.url), "utf8")
   ]);
-  for (const locale of [fr, en]) {
-    assert.equal(typeof locale.catalog.loading, "string");
-    assert.equal(typeof locale.catalog.noProducts, "string");
-    assert.equal(typeof locale.catalog.networkError, "string");
-    assert.equal(typeof locale.catalog.httpError, "string");
-    assert.equal(typeof locale.catalog.invalidResponse, "string");
-    assert.equal(typeof locale.catalog.retry, "string");
-    assert.equal(typeof locale.catalog.backToShop, "string");
-    assert.equal(typeof locale.shop.noResults, "string");
-    assert.equal(typeof locale.product.notFound, "string");
-    assert.equal(typeof locale.cart.staleReferences, "string");
-    assert.equal(typeof locale.cart.removeStale, "string");
-  }
-  assert.equal(en.products["550e8400-e29b-41d4-a716-446655440000"].name.length > 0, true);
-  assert.equal(en.products["7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90"].name.length > 0, true);
+  assert.equal(typeof fr.catalog.loading, "string");
+  assert.equal(typeof fr.catalog.noProducts, "string");
+  assert.equal(typeof fr.catalog.networkError, "string");
+  assert.equal(typeof fr.catalog.httpError, "string");
+  assert.equal(typeof fr.catalog.invalidResponse, "string");
+  assert.equal(typeof fr.catalog.retry, "string");
+  assert.equal(typeof fr.catalog.backToShop, "string");
+  assert.equal(typeof fr.shop.noResults, "string");
+  assert.equal(typeof fr.product.notFound, "string");
+  assert.equal(typeof fr.cart.staleReferences, "string");
+  assert.equal(typeof fr.cart.removeStale, "string");
+  assert.match(app, /initFrench/);
+  assert.doesNotMatch(app, /languagechange|documentElement\.lang === "en"|language\.js|en\.json/);
+  assert.doesNotMatch(frenchModule, /setLanguage|data-language-select|en\.json|localStorage/);
+  assert.equal(existsSync(new URL("../public/locales/en.json", import.meta.url)), false);
 });

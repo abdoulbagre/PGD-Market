@@ -21,11 +21,11 @@ export class CatalogLoadError extends Error {
 const isRecord = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
-const isLocalizedText = (value) =>
-  isRecord(value) &&
-  Object.keys(value).length === 2 &&
-  typeof value.fr === "string" &&
-  typeof value.en === "string";
+const isFrenchText = (value) =>
+  typeof value === "string" ||
+  (isRecord(value) &&
+    Object.keys(value).every((key) => key === "fr" || key === "en") &&
+    typeof value.fr === "string");
 
 export function isPublicProduct(product) {
   return isRecord(product) &&
@@ -33,8 +33,8 @@ export function isPublicProduct(product) {
     Object.keys(product).every((field) => PRODUCT_FIELDS.has(field)) &&
     typeof product.id === "string" &&
     product.id.length > 0 &&
-    isLocalizedText(product.name) &&
-    isLocalizedText(product.description) &&
+    isFrenchText(product.name) &&
+    isFrenchText(product.description) &&
     Number.isSafeInteger(product.price) &&
     product.price > 0 &&
     SUPPORTED_CURRENCIES.has(product.currency) &&

@@ -4,6 +4,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
   <script>
     const identityCallbackParams = new URLSearchParams(window.location.hash.slice(1));
     const hasIdentityToken = ["recovery_token", "invite_token"]
@@ -34,7 +37,7 @@
 
   <meta name="robots" content="index,follow">
   <meta name="description" content="PGD Market propose des guides numériques pratiques en marketing, TikTok, IA, création de contenu et croissance digitale pour apprendre et agir rapidement.">
-  <meta name="theme-color" content="#147d68">
+  <meta name="theme-color" content="#0e5c4e">
   <link rel="canonical" href="https://pgd-market.netlify.app/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="PGD Market">
@@ -49,6 +52,7 @@
   <link rel="stylesheet" href="assets/css/style.css">
   <link rel="stylesheet" href="assets/css/components.css">
   <link rel="stylesheet" href="assets/css/responsive.css">
+  <link rel="stylesheet" href="assets/css/premium.css">
 </head>
 
 <body data-page="home">
@@ -57,17 +61,14 @@
     <section class="hero container">
       <div class="hero-copy reveal">
         <p class="eyebrow" data-i18n="home.eyebrow"></p>
-        <h1 data-i18n="home.title"></h1>
+        <h1><span data-i18n="home.title"></span> <span data-i18n="home.titleAccent"></span></h1>
         <p class="hero-text" data-i18n="home.description"></p>
         <div class="hero-actions"><a class="button button-primary" href="boutique.html"><span
               data-i18n="home.cta"></span> <span aria-hidden="true">→</span></a><a class="button button-outline"
-            href="boutique.html" data-i18n="home.viewProducts"></a></div>
+            href="#featured-title" data-i18n="home.viewProducts"></a></div>
+        <p class="hero-note">Ressources pratiques · Format numérique</p>
       </div>
-      <div class="hero-panel reveal" aria-label="PGD Market">
-        <span class="hero-mark">PGD</span>
-        <span>DIGITAL</span>
-        <small data-i18n="home.eyebrow"></small>
-      </div>
+      <div id="home-hero-products" class="hero-art reveal" aria-hidden="true"></div>
     </section>
     <section class="section container" aria-labelledby="featured-title">
       <div class="section-heading">

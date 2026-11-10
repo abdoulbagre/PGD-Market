@@ -182,7 +182,6 @@
     outline: 2px solid rgba(20, 125, 104, .18)
 }
 
-.language-control,
 .checkout-currency-control,
 .product-currency-control {
     display: flex;
@@ -192,7 +191,6 @@
     position: relative
 }
 
-.language-control > span,
 .checkout-currency-control > .currency-picker-label,
 .product-currency-control > .currency-picker-label {
     position: absolute;
@@ -200,14 +198,6 @@
     height: 1px;
     overflow: hidden;
     clip: rect(0 0 0 0)
-}
-
-.language-control select {
-    border: 1px solid var(--line);
-    background: var(--paper);
-    padding: 7px 8px;
-    color: var(--ink);
-    font-size: .75rem
 }
 
 .checkout-currency-control {

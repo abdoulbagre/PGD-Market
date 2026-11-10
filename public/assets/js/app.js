@@ -1,5 +1,5 @@
 import { createCatalogClient } from "./catalog.js";
-import { initLanguage, t } from "./language.js";
+import { initFrench, t } from "./french.js";
 import {
   currencyOptions,
   convertPriceBetweenCurrencies,
@@ -12,8 +12,9 @@ const catalogClient = createCatalogClient();
 const formatPrice = (product) => formatDisplayPrice(product.price, product.currency);
 const page = document.body.dataset.page;
 const escapeHtml = (value) => String(value).replace(/[&<>\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[char]));
-const productText = (product, field) =>
-  product[field][document.documentElement.lang === "en" ? "en" : "fr"] || product[field].fr;
+const productText = (product, field) => typeof product[field] === "string"
+  ? product[field]
+  : product[field].fr;
 const productDescription = (product) =>
   escapeHtml(productText(product, "description")).replace(/&lt;br\s*\/?&gt;/gi, "<br>");
 const productImage = (product) => new URL(`../../${product.image}`, import.meta.url).href;
@@ -122,11 +123,66 @@ function bindProductCurrency(root = document) {
 }
 
 function renderChrome() {
-  if (!document.querySelector("link[rel=icon]")) { const icon = document.createElement("link"); icon.rel = "icon"; icon.href = "../../assets/Background/logo.png"; document.head.append(icon); }
-  document.querySelector("[data-header]").innerHTML = `<div class="header-inner"><a class="brand" href="index.html" aria-label="${t("navigation.brandHome")}" data-i18n-aria-label="navigation.brandHome"><img src="../../assets/Background/logo.png" alt="PGD DIGITAL" width="52" height="52"><span>DIGITAL</span></a><button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="${t("navigation.openMenu")}" data-i18n="navigation.menu"></button><nav id="main-nav" class="main-nav" aria-label="${t("navigation.mainNavigation")}" data-i18n-aria-label="navigation.mainNavigation"><a href="index.html" data-i18n="navigation.home"></a><a href="boutique.html" data-i18n="navigation.shop"></a><a href="panier.html" aria-label="${t("navigation.cart")}" data-i18n-aria-label="navigation.cart"><span data-i18n="navigation.cart"></span> <span class="cart-count" data-cart-count aria-label="${t("navigation.cartCount")}" data-i18n-aria-label="navigation.cartCount">0</span></a><a href="contact.html" data-i18n="navigation.contact"></a></nav></div>`;
-  document.querySelector("[data-footer]").innerHTML = `<div class="footer-inner"><div><a class="brand footer-brand" href="index.html" aria-label="${t("navigation.brandHome")}" data-i18n-aria-label="navigation.brandHome"><span>PGD</span><span>DIGITAL</span></a><p data-i18n="footer.description"></p></div><div><strong data-i18n="footer.information"></strong><a href="contact.html" data-i18n="navigation.contact"></a><a href="mentions-legales.html" data-i18n="legal.title"></a><a href="politique-confidentialite.html" data-i18n="footer.privacy"></a></div></div><div class="footer-bottom" data-i18n="footer.copyright"></div>`;
+  if (!document.querySelector("link[rel=icon]")) {
+    const icon = document.createElement("link");
+    icon.rel = "icon";
+    icon.href = "../../assets/Background/logo.png";
+    document.head.append(icon);
+  }
+  document.querySelector("[data-header]").innerHTML = `
+    <div class="header-inner">
+      <a class="brand" href="index.html" aria-label="${t("navigation.brandHome")}" data-i18n-aria-label="navigation.brandHome">
+        <img src="assets/Background/logo.png" alt="" width="43" height="43">
+        <span>PGD</span><span>Market</span>
+      </a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="${t("navigation.openMenu")}" data-i18n-aria-label="navigation.openMenu">
+        <span class="menu-toggle-label" data-i18n="navigation.menu"></span><span class="menu-toggle-icon" aria-hidden="true"></span>
+      </button>
+      <nav id="main-nav" class="main-nav" aria-label="${t("navigation.mainNavigation")}" data-i18n-aria-label="navigation.mainNavigation">
+        <a href="boutique.html" data-i18n="navigation.shop"></a>
+        <a href="contact.html" data-i18n="navigation.contact"></a>
+        <a href="panier.html" aria-label="${t("navigation.cart")}" data-i18n-aria-label="navigation.cart">
+          <span data-i18n="navigation.cart"></span> <span class="cart-count" data-cart-count aria-label="${t("navigation.cartCount")}" data-i18n-aria-label="navigation.cartCount">0</span>
+        </a>
+      </nav>
+    </div>`;
+  document.querySelector("[data-footer]").innerHTML = `
+    <div class="footer-inner">
+      <div>
+        <a class="brand footer-brand" href="index.html" aria-label="${t("navigation.brandHome")}" data-i18n-aria-label="navigation.brandHome"><span>PGD</span><span>Market</span></a>
+        <p data-i18n="footer.description"></p>
+      </div>
+      <div>
+        <strong data-i18n="footer.information"></strong>
+        <a href="boutique.html" data-i18n="navigation.shop"></a>
+        <a href="contact.html" data-i18n="navigation.contact"></a>
+        <a href="mentions-legales.html" data-i18n="legal.title"></a>
+        <a href="politique-confidentialite.html" data-i18n="footer.privacy"></a>
+      </div>
+    </div>
+    <div class="footer-bottom" data-i18n="footer.copyright"></div>`;
   const toggle = document.querySelector(".menu-toggle");
-  toggle.addEventListener("click", () => { const open = toggle.getAttribute("aria-expanded") === "true"; toggle.setAttribute("aria-expanded", String(!open)); document.querySelector(".main-nav").classList.toggle("is-open", !open); updateMenuToggleLabel(toggle); });
+  const nav = document.querySelector(".main-nav");
+  const closeMenu = () => {
+    toggle.setAttribute("aria-expanded", "false");
+    nav.classList.remove("is-open");
+    updateMenuToggleLabel(toggle);
+  };
+  toggle.addEventListener("click", () => {
+    const open = toggle.getAttribute("aria-expanded") === "true";
+    toggle.setAttribute("aria-expanded", String(!open));
+    nav.classList.toggle("is-open", !open);
+    updateMenuToggleLabel(toggle);
+  });
+  nav.addEventListener("click", (event) => {
+    if (event.target.closest("a")) closeMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && toggle.getAttribute("aria-expanded") === "true") {
+      closeMenu();
+      toggle.focus();
+    }
+  });
   updateCartCount();
 }
 
@@ -136,12 +192,29 @@ function updateMenuToggleLabel(toggle = document.querySelector(".menu-toggle")) 
   toggle.setAttribute("aria-label", t(isOpen ? "navigation.closeMenu" : "navigation.openMenu"));
 }
 
-function productCard(product) {
+function productCard(product, index = 0) {
   const productUrl = `produit.html?id=${encodeURIComponent(product.id)}`;
   const name = productText(product, "name");
-  const image = `<img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(name)}" loading="lazy" width="420" height="260">`;
-  const currencySelector = currencyPickerMarkup("product-currency-control", "data-product-currency-picker");
-  return `<article class="product-card reveal"><a class="product-image" href="${productUrl}" aria-label="${escapeHtml(t("product.view"))} ${escapeHtml(name)}">${image}</a><div class="product-card-body"><h3>${escapeHtml(name)}</h3><div class="product-card-footer"><strong>${escapeHtml(formatPrice(product))}</strong>${currencySelector}</div><div class="product-actions"><a class="button button-small button-primary" href="${productUrl}">${escapeHtml(t("product.view"))}</a></div></div></article>`;
+  const image = `<img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(name)}" loading="lazy" decoding="async" width="720" height="720">`;
+  return `
+    <article class="product-card">
+      <span class="product-card__index" aria-hidden="true">${String(index + 1).padStart(2, "0")}</span>
+      <div class="product-card__visual">
+        <a class="product-image" href="${productUrl}" aria-label="${escapeHtml(t("product.view"))} : ${escapeHtml(name)}">${image}</a>
+        <span class="product-card__image-note" aria-hidden="true">PGD Market · Ressource numérique</span>
+      </div>
+      <div class="product-card-body">
+        <p class="eyebrow">Guide numérique</p>
+        <h3>${escapeHtml(name)}</h3>
+        <div class="product-card-footer">
+          <strong>${escapeHtml(formatPrice(product))}</strong>
+          <span>Contenu numérique</span>
+        </div>
+        <div class="product-actions">
+          <a class="button button-primary" href="${productUrl}">${escapeHtml(t("product.view"))}<span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </article>`;
 }
 
 function currencyPickerMarkup(className, dataAttribute) {
@@ -149,7 +222,7 @@ function currencyPickerMarkup(className, dataAttribute) {
   return `<div class="${className}" ${dataAttribute} data-currency-picker-root><span class="currency-picker-label">${t("checkout.currency")}</span><button class="currency-picker-trigger" type="button" data-currency-trigger aria-expanded="false" aria-haspopup="listbox"><span data-currency-flag aria-hidden="true"></span><span data-currency-label></span><span class="currency-picker-chevron" aria-hidden="true">⌄</span></button><div class="currency-picker-menu" data-currency-menu role="listbox" hidden>${options}</div></div>`;
 }
 
-function bindCartButtons(root = document) { root.querySelectorAll("[data-add-cart]").forEach((button) => button.addEventListener("click", () => addToCart(button.dataset.addCart, button))); bindProductCurrency(root); }
+function bindCartButtons(root = document) { root.querySelectorAll("[data-add-cart]").forEach((button) => button.addEventListener("click", () => addToCart(button.dataset.addCart, button))); }
 function updateCartCount() { const cart = readCart(); document.querySelectorAll("[data-cart-count]").forEach((element) => { element.textContent = cart.length; }); }
 function setupShop() {
   const output = document.getElementById("shop-products");
@@ -178,15 +251,16 @@ function setupShop() {
       );
     }
     output.innerHTML = result.length
-      ? result.map(productCard).join("")
+      ? result.map((product, index) => productCard(product, index)).join("")
       : `<div class="catalog-state" role="status">${escapeHtml(t("shop.noResults"))}</div>`;
     document.getElementById("result-count").textContent =
       `${result.length} ${result.length === 1 ? t("shop.resultOne") : t("shop.resultMany")}`;
     bindCartButtons(output);
   };
   if (!output.dataset.bound) {
-    [...new Set(catalogProducts.map((product) => product.category).filter(Boolean))]
-      .forEach((value) => category.add(new Option(value, value)));
+    const categories = [...new Set(catalogProducts.map((product) => product.category).filter(Boolean))];
+    categories.forEach((value) => category.add(new Option(value, value)));
+    category.closest("label").hidden = categories.length === 0;
     [search, category, sort].forEach((element) => element.addEventListener("input", render));
     sort.addEventListener("change", render);
     output.dataset.bound = "true";
@@ -196,8 +270,25 @@ function setupShop() {
 
 function setupHome() {
   const output = document.getElementById("featured-products");
+  const heroArt = document.getElementById("home-hero-products");
+  const [backProduct, frontProduct] = catalogProducts;
+  if (heroArt && backProduct) {
+    const backCover = `<figure class="hero-art__book hero-art__book--back"><img src="${escapeHtml(productImage(backProduct))}" alt="" width="720" height="720"></figure>`;
+    const frontCover = frontProduct
+      ? `<figure class="hero-art__book hero-art__book--front"><img src="${escapeHtml(productImage(frontProduct))}" alt="" width="720" height="720"></figure>`
+      : "";
+    heroArt.innerHTML = `
+      ${backCover}
+      <div class="hero-art__folio"><span>PGD MARKET · GUIDES NUMÉRIQUES</span></div>
+      ${frontCover}
+      <span class="hero-art__seal">PGD</span>
+      <span class="hero-art__caption">Guides pratiques<br>Format numérique</span>`;
+    heroArt.hidden = false;
+  } else if (heroArt) {
+    heroArt.hidden = true;
+  }
   output.innerHTML = catalogProducts.length
-    ? catalogProducts.slice(0, 3).map(productCard).join("")
+    ? catalogProducts.map((product, index) => productCard(product, index)).join("")
     : `<div class="catalog-state" role="status">${escapeHtml(t("catalog.noProducts"))}</div>`;
   bindCartButtons(output);
 }
@@ -218,9 +309,9 @@ function setupProduct(product) {
   const paymentLogos = [{ name: "Orange Money", file: "orange-money.svg" }, { name: "Moov Money", file: "moov-money.png" }, { name: "Wave", file: "wave.svg" }, { name: "Visa", file: "visa.svg" }, { name: "Mastercard", file: "mastercard.svg" }, { name: "Bitcoin", file: "bitcoin.svg" }];
   const paymentMethods = `<div class="payment-methods" aria-label="${escapeHtml(t("productDetails.paymentMethods"))}"><p>${escapeHtml(t("productDetails.paymentMethods"))}</p><div class="payment-method-list">${paymentLogos.map((payment) => `<span class="payment-method"><img src="assets/payments/${payment.file}" alt="${payment.name}"></span>`).join("")}</div></div>`;
   const purchasePanel = `<aside class="product-purchase" aria-label="${escapeHtml(t("productDetails.purchaseOverview"))}"><p class="purchase-label">${escapeHtml(t("productDetails.purchaseOverview"))}</p><p class="product-price">${escapeHtml(formatPrice(product))}</p>${actions}${paymentMethods}<div class="purchase-links"><a href="contact.html">${escapeHtml(t("navigation.contact"))}</a><span aria-hidden="true">|</span><a href="contact.html">${escapeHtml(t("productDetails.report"))}</a></div><details class="purchase-help"><summary>${escapeHtml(t("productDetails.purchaseHelpTitle"))}</summary><p>${escapeHtml(t("productDetails.purchaseHelpText"))}</p></details></aside>`;
-  const stickyAction = `<div class="product-sticky-cta"><strong>${escapeHtml(formatPrice(product))}</strong><a class="button button-primary" href="${checkoutUrl}">${escapeHtml(t("product.order"))}</a></div>`;
+  const stickyAction = `<div class="product-sticky-cta is-hidden"><strong>${escapeHtml(formatPrice(product))}</strong><a class="button button-primary" href="${checkoutUrl}">${escapeHtml(t("product.order"))}</a></div>`;
   const description = productDescription(product);
-  target.innerHTML = `<div class="product-heading"><h1>${escapeHtml(name)}</h1></div><div class="product-left"><div class="product-visual"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(name)}"></div><div class="rich-description">${description}</div></div>${purchasePanel}${stickyAction}`;
+  target.innerHTML = `<div class="product-heading"><p class="eyebrow">Guide numérique · PGD Market</p><h1>${escapeHtml(name)}</h1></div><div class="product-left"><div class="product-visual"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(name)}" width="900" height="900"></div><div class="rich-description">${description}</div></div>${purchasePanel}${stickyAction}`;
   bindCartButtons(target);
   bindProductSticky(target);
 }
@@ -239,36 +330,55 @@ function setupCheckout(product) {
   if (form.dataset.bound) return;
   form.dataset.bound = "true";
   const phoneCountryCodeInput = document.getElementById("phone-country-code");
+  const nameInput = document.getElementById("nom");
+  const emailInput = document.getElementById("email");
+  const phoneInput = document.getElementById("phone");
   const normalizePhoneCountryCode = () => {
     phoneCountryCodeInput.value = phoneCountryCodeInput.value.trim().toUpperCase();
   };
   phoneCountryCodeInput.addEventListener("input", normalizePhoneCountryCode);
   phoneCountryCodeInput.addEventListener("change", normalizePhoneCountryCode);
+  [nameInput, emailInput, phoneInput, phoneCountryCodeInput].forEach((input) => {
+    input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
+  });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = form.querySelector("button[type=submit]");
+    const buttonText = button.querySelector(".button-text-animate");
+    const originalButtonText = buttonText.textContent;
     const message = document.getElementById("payment-message");
-    const name = document.getElementById("nom").value.trim();
-    const email = document.getElementById("email").value.trim();
-    const phone = document.getElementById("phone").value.trim();
+    const name = nameInput.value.trim();
+    const email = emailInput.value.trim();
+    const phone = phoneInput.value.trim();
     const phoneCountryCode = document.getElementById("phone-country-code").value.trim().toUpperCase();
     const selectedCurrency = getSelectedCurrency();
+    form.querySelectorAll('[aria-invalid="true"]').forEach((input) => input.removeAttribute("aria-invalid"));
     message.textContent = "";
     if (!name) {
       message.textContent = t("checkout.nameRequired");
-      document.getElementById("nom").focus();
+      nameInput.setAttribute("aria-invalid", "true");
+      nameInput.focus();
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       message.textContent = t("checkout.emailInvalid");
-      document.getElementById("email").focus();
+      emailInput.setAttribute("aria-invalid", "true");
+      emailInput.focus();
       return;
     }
     if (phone.replace(/\D/g, "").length < 6 || !/^[A-Z]{2}$/.test(phoneCountryCode)) {
       message.textContent = t("checkout.phoneInvalid");
+      const invalidPhone = phone.replace(/\D/g, "").length < 6;
+      const invalidCountryCode = !/^[A-Z]{2}$/.test(phoneCountryCode);
+      if (invalidPhone) phoneInput.setAttribute("aria-invalid", "true");
+      if (invalidCountryCode) phoneCountryCodeInput.setAttribute("aria-invalid", "true");
+      (invalidPhone ? phoneInput : phoneCountryCodeInput).focus();
       return;
     }
     button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    buttonText.textContent = t("checkout.preparing");
+    message.classList.add("is-loading");
     message.textContent = t("checkout.preparing");
     try {
       const response = await fetch("/.netlify/functions/create-payment", {
@@ -285,9 +395,12 @@ function setupCheckout(product) {
     } catch (error) {
       const knownErrors = ["invalid-json", "missing-payment-data", "server-error"];
       message.textContent = knownErrors.includes(error.message)
-        ? (error.message === "invalid-json" ? t("checkout.paymentFailed") : t("checkout.paymentLinkMissing"))
+        ? (error.message === "missing-payment-data" ? t("checkout.paymentLinkMissing") : t("checkout.paymentFailed"))
         : error.message;
+      message.classList.remove("is-loading");
       button.disabled = false;
+      button.removeAttribute("aria-busy");
+      buttonText.textContent = originalButtonText;
     }
   });
 }
@@ -298,7 +411,7 @@ function setupCart() {
   const items = ids.map((id) => productById.get(id)).filter(Boolean);
   const staleIds = ids.filter((id) => !productById.has(id));
   const staleNotice = staleIds.length
-    ? `<div class="catalog-state" role="status"><p>${escapeHtml(t("cart.staleReferences", { count: staleIds.length }))}</p><button class="button button-outline" type="button" data-remove-stale>${escapeHtml(t("cart.removeStale"))}</button></div>`
+    ? `<div class="catalog-state" role="status"><p>${escapeHtml(t("cart.staleReferences", { count: staleIds.length }))}</p><button class="button button-danger" type="button" data-remove-stale>${escapeHtml(t("cart.removeStale"))}</button></div>`
     : "";
   if (!items.length) {
     content.innerHTML = `${staleNotice}<p>${escapeHtml(t("cart.empty"))}</p><div class="cart-actions"><button class="button button-disabled" type="button" disabled>${escapeHtml(t("cart.checkout"))}</button><a class="button button-primary" href="boutique.html">${escapeHtml(t("cart.discover"))}</a></div>`;
@@ -309,7 +422,7 @@ function setupCart() {
     );
     const rows = items.map((product) => {
       const name = productText(product, "name");
-      return `<div class="cart-item"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(name)}"><div><h2>${escapeHtml(name)}</h2><strong>${escapeHtml(formatPrice(product))}</strong></div><button class="button button-small button-outline" type="button" data-remove="${escapeHtml(product.id)}">${escapeHtml(t("cart.remove"))}</button></div>`;
+      return `<div class="cart-item"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(name)}"><div><h2>${escapeHtml(name)}</h2><strong>${escapeHtml(formatPrice(product))}</strong></div><button class="button button-small button-danger" type="button" data-remove="${escapeHtml(product.id)}">${escapeHtml(t("cart.remove"))}</button></div>`;
     }).join("");
     const checkout = items.length === 1
       ? `<a class="button button-primary" href="commande.html?id=${encodeURIComponent(items[0].id)}">${escapeHtml(t("cart.checkout"))}</a>`
@@ -404,15 +517,10 @@ async function renderPage({ retryCatalog = false } = {}) {
 }
 
 renderChrome();
-await initLanguage();
+await initFrench();
 updateMenuToggleLabel();
 renderPage();
 bindCheckoutCurrency();
-document.addEventListener("languagechange", () => {
-  updateMenuToggleLabel();
-  renderPage();
-  bindCheckoutCurrency();
-});
 
 document.addEventListener("click", (event) => {
   if (event.target.closest("[data-catalog-retry]")) {

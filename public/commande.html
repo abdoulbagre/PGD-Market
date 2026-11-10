@@ -4,6 +4,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
 
         <!-- Meta Pixel Code -->
     <script>
@@ -36,6 +39,7 @@
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/components.css">
     <link rel="stylesheet" href="assets/css/responsive.css">
+    <link rel="stylesheet" href="assets/css/premium.css">
 </head>
 
 <body class="checkout-page" data-page="checkout">
@@ -43,19 +47,35 @@
     <main class="container page-shell">
         <div class="checkout-layout">
             <form id="checkout-form" class="form-panel" novalidate>
-                <h1 class="checkout-animate checkout-delay-1" data-i18n="checkout.title"></h1>
-                <details class="checkout-order">
-                    <summary data-i18n="checkout.summary"></summary>
-                    <section id="checkout-summary" class="summary-panel"></section>
-                </details>
+                <div class="checkout-form-heading checkout-animate checkout-delay-1">
+                    <p class="eyebrow">Votre commande</p>
+                    <h1 data-i18n="checkout.title"></h1>
+                    <p>Renseignez vos coordonnées pour poursuivre le paiement sur Chariow.</p>
+                </div>
+                <section class="checkout-order" aria-labelledby="checkout-order-title">
+                    <h2 id="checkout-order-title" data-i18n="checkout.summary"></h2>
+                    <p data-i18n="checkout.privacy"></p>
+                </section>
                 <div class="checkout-currency-control checkout-animate checkout-delay-4" data-checkout-currency-picker data-currency-picker-root><span class="currency-picker-label" data-i18n="checkout.currency"></span><button class="currency-picker-trigger" type="button" data-currency-trigger aria-expanded="false" aria-haspopup="listbox"><span data-currency-flag aria-hidden="true"></span><span data-currency-label></span><span class="currency-picker-chevron" aria-hidden="true">⌄</span></button><div class="currency-picker-menu" data-currency-menu role="listbox" hidden><button class="currency-option" type="button" role="option" data-currency-option="XOF"><span data-i18n="checkout.currencyXof">Franc CFA</span></button><button class="currency-option" type="button" role="option" data-currency-option="EUR"><span aria-hidden="true">🇫🇷</span><span data-i18n="checkout.currencyEur">Euro</span></button><button class="currency-option" type="button" role="option" data-currency-option="USD"><span aria-hidden="true">🇺🇸</span><span data-i18n="checkout.currencyUsd">Dollar</span></button></div></div>
-                <label class="checkout-animate checkout-delay-5"><span data-i18n="checkout.name"></span><input id="nom" name="nom" autocomplete="name" required></label>
-                <label class="checkout-animate checkout-delay-6"><span data-i18n="checkout.email"></span><input id="email" name="email" type="email" autocomplete="email" required></label>
-                <label class="checkout-animate checkout-delay-6"><span data-i18n="checkout.phone">Téléphone</span><input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required></label>
-                <label class="checkout-animate checkout-delay-6"><span data-i18n="checkout.phoneCountryCode">Code pays du téléphone</span><input id="phone-country-code" name="phone-country-code" type="text" autocomplete="country" data-i18n-placeholder="checkout.phoneCountryCodePlaceholder" placeholder="Ex. : BF" maxlength="4" required></label>
+                <fieldset class="checkout-fields checkout-animate checkout-delay-5">
+                    <legend>Vos coordonnées</legend>
+                    <div class="checkout-fields-grid">
+                        <label class="checkout-field"><span data-i18n="checkout.name"></span><input id="nom" name="nom" autocomplete="name" required></label>
+                        <label class="checkout-field"><span data-i18n="checkout.email"></span><input id="email" name="email" type="email" autocomplete="email" required></label>
+                        <div class="checkout-phone-row">
+                            <label class="checkout-field"><span data-i18n="checkout.phone">Téléphone</span><input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required></label>
+                            <label class="checkout-field"><span data-i18n="checkout.phoneCountryCode">Code pays du téléphone</span><input id="phone-country-code" name="phone-country-code" type="text" autocomplete="country" data-i18n-placeholder="checkout.phoneCountryCodePlaceholder" placeholder="Ex. : BF" maxlength="4" required></label>
+                        </div>
+                    </div>
+                </fieldset>
                 <button class="button button-primary checkout-animate checkout-delay-7" type="submit"><span class="checkout-button-content"><span class="button-arrow-animate" aria-hidden="true">→</span><span class="button-text-animate" data-i18n="checkout.pay"></span></span></button>
                 <p id="payment-message" class="form-message checkout-animate checkout-delay-8" role="alert" aria-live="polite"></p>
             </form>
+            <aside class="checkout-aside" aria-labelledby="checkout-aside-title">
+                <p id="checkout-aside-title" class="eyebrow">Votre sélection</p>
+                <section id="checkout-summary" class="summary-panel" aria-live="polite"></section>
+                <p>Après validation de vos coordonnées, vous serez redirigé vers Chariow pour finaliser le paiement.</p>
+            </aside>
         </div>
     </main>
     <footer class="site-footer" data-footer></footer>
