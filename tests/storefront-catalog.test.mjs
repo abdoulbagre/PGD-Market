@@ -148,6 +148,28 @@ test("storefront pages use catalog data and payment request omits amount and Cha
   assert.match(app, /data-catalog-retry/);
 });
 
+test("storefront cart CTAs expose add feedback and an accessible cart count", async () => {
+  const [app, fr, theme] = await Promise.all([
+    readFile(new URL("../public/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("../public/assets/css/premium.css", import.meta.url), "utf8")
+  ]);
+  assert.match(app, /button\.classList\.add\("is-added"\)/);
+  assert.match(app, /cart\.added/);
+  assert.match(app, /data-add-cart="\$\{escapeHtml\(product\.id\)\}"/);
+  assert.match(app, /cartCountOne/);
+  assert.match(app, /cart-item__quantity/);
+  assert.match(app, /cart-summary__total/);
+  assert.match(app, /class="cart-empty"/);
+  assert.match(app, /footer-brand-block/);
+  assert.match(theme, /--paper:\s*#f7f3eb/);
+  assert.match(theme, /--accent-dark:\s*#183a2f/);
+  assert.match(theme, /--warm:\s*#99652f/);
+  assert.equal(fr.navigation.cartCountEmpty, "Panier, aucun article");
+  assert.equal(fr.cart.itemOne, "{{count}} produit sélectionné");
+  assert.equal(fr.cart.summaryNote, "Chaque ressource se commande individuellement.");
+});
+
 test("the storefront uses French text only and has no English locale dependency", async () => {
   const [fr, app, frenchModule] = await Promise.all([
     readFile(new URL("../public/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),

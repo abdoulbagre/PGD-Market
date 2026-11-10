@@ -32,6 +32,9 @@
         "closeMenu": "Fermer le menu",
         "mainNavigation": "Navigation principale",
         "cartCount": "Nombre d’articles dans le panier",
+        "cartCountEmpty": "Panier, aucun article",
+        "cartCountOne": "Panier, {{count}} article",
+        "cartCountMany": "Panier, {{count}} articles",
         "brandHome": "PGD Market - Accueil"
     },
     "home": {
@@ -127,13 +130,20 @@
         "eyebrow": "Votre sélection",
         "title": "Panier",
         "empty": "Votre panier est vide.",
+        "emptyEyebrow": "Votre prochaine lecture commence ici",
+        "emptyDescription": "Parcourez les ressources numériques et ajoutez celles que vous souhaitez retrouver ici.",
+        "quantity": "Quantité",
         "remove": "Retirer",
         "clear": "Vider le panier",
         "subtotal": "Sous-total",
         "total": "Total",
         "checkout": "Passer la commande",
         "discover": "Découvrir la boutique",
-        "added": "Produit ajouté au panier.",
+        "summary": "Résumé de votre sélection",
+        "summaryNote": "Chaque ressource se commande individuellement.",
+        "itemOne": "{{count}} produit sélectionné",
+        "itemMany": "{{count}} produits sélectionnés",
+        "added": "Ajouté au panier",
         "alreadyAdded": "Ce produit est déjà dans votre panier.",
         "groupUnavailable": "Le paiement groupé n’est pas disponible avec le service actuel. Commandez chaque produit séparément.",
         "singleCheckout": "Commander ce produit",
@@ -164,9 +174,13 @@
     },
     "footer": {
         "description": "Une sélection de ressources numériques pratiques.",
+        "signature": "LA BIBLIOTHÈQUE NUMÉRIQUE PGD",
+        "shopCta": "Explorer les ressources",
+        "explore": "Explorer",
         "information": "Informations",
         "privacy": "Confidentialité",
-        "copyright": "© 2026 PGD DIGITAL. Tous droits réservés."
+        "copyright": "© 2026 PGD DIGITAL. Tous droits réservés.",
+        "brandNote": "PGD Market · Ressources numériques"
     },
     "errors": {
         "productUnavailable": "Ce produit n’est actuellement pas disponible.",

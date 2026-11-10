@@ -18,7 +18,7 @@
     height: 64px;
     margin: 0 auto 20px;
     border-radius: 50%;
-    background: rgba(20, 125, 104, .12);
+    background: rgba(41, 75, 62, .1);
     font: 700 2rem Arial, sans-serif
 }
 
@@ -179,7 +179,7 @@
 .shop-toolbar input:focus,
 .shop-toolbar select:focus {
     border-color: var(--accent);
-    outline: 2px solid rgba(20, 125, 104, .18)
+    outline: 2px solid rgba(153, 101, 47, .28)
 }
 
 .checkout-currency-control,

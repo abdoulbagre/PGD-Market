@@ -1,17 +1,17 @@
 :root {
-    --ink: #17222d;
-    --muted: #546370;
-    --paper: #f5f7f5;
-    --white: #fff;
-    --line: rgba(17, 42, 38, .12);
-    --accent: #147d68;
-    --accent-dark: #0e5c4e;
-    --warm: #e7a34b;
-    --warm-soft: rgba(231, 163, 75, .12);
+    --ink: #20231f;
+    --muted: #62675f;
+    --paper: #f7f3eb;
+    --white: #fffdf8;
+    --line: rgba(46, 56, 48, .14);
+    --accent: #294b3e;
+    --accent-dark: #183a2f;
+    --warm: #99652f;
+    --warm-soft: rgba(153, 101, 47, .12);
     --max: 1240px;
     --glass: rgba(255, 255, 255, .72);
-    --shadow-soft: 0 18px 40px rgba(14, 92, 78, .12);
-    --shadow-card: 0 12px 28px rgba(15, 30, 36, .08)
+    --shadow-soft: 0 18px 40px rgba(24, 58, 47, .12);
+    --shadow-card: 0 12px 28px rgba(32, 35, 31, .08)
 }
 
 * {
@@ -29,9 +29,9 @@ body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     line-height: 1.5;
     background:
-        radial-gradient(circle at top left, rgba(20, 125, 104, .08), transparent 24%),
-        radial-gradient(circle at top right, rgba(231, 163, 75, .12), transparent 18%),
-        linear-gradient(180deg, #fdfdfc 0%, #f5f7f5 100%)
+        radial-gradient(circle at top left, rgba(41, 75, 62, .06), transparent 24%),
+        radial-gradient(circle at top right, rgba(153, 101, 47, .1), transparent 18%),
+        linear-gradient(180deg, #fffdf8 0%, #f7f3eb 100%)
 }
 
 body::before {
@@ -55,7 +55,7 @@ select {
 }
 
 :focus-visible {
-    outline: 3px solid rgba(20, 125, 104, .38);
+    outline: 3px solid rgba(153, 101, 47, .55);
     outline-offset: 3px
 }
 
@@ -76,8 +76,8 @@ select {
 }
 
 .site-header {
-    background: rgba(255, 255, 255, .72);
-    border-bottom: 1px solid rgba(14, 92, 78, .08);
+    background: rgba(255, 253, 248, .78);
+    border-bottom: 1px solid rgba(24, 58, 47, .08);
     position: sticky;
     top: 0;
     z-index: 5;
@@ -193,8 +193,8 @@ select {
     height: 220px;
     top: 18px;
     right: 10%;
-    background: rgba(20, 125, 104, .08);
-    box-shadow: -100px 110px 0 -48px rgba(231, 163, 75, .1), 150px 180px 0 -90px rgba(14, 92, 78, .14)
+    background: rgba(41, 75, 62, .07);
+    box-shadow: -100px 110px 0 -48px rgba(153, 101, 47, .1), 150px 180px 0 -90px rgba(24, 58, 47, .11)
 }
 
 .hero::after {
@@ -202,8 +202,8 @@ select {
     height: 150px;
     bottom: 36px;
     left: 6%;
-    background: rgba(231, 163, 75, .14);
-    box-shadow: 120px -45px 0 -46px rgba(20, 125, 104, .14)
+    background: rgba(153, 101, 47, .11);
+    box-shadow: 120px -45px 0 -46px rgba(41, 75, 62, .1)
 }
 
 .eyebrow {
@@ -237,7 +237,7 @@ select {
 
 .hero-panel {
     min-height: 300px;
-    background: linear-gradient(145deg, #0d584d 0%, #0e5c4e 35%, #0d423a 100%);
+    background: linear-gradient(145deg, #294b3e 0%, #183a2f 55%, #122d24 100%);
     color: #fff;
     display: flex;
     flex-direction: column;
@@ -256,9 +256,9 @@ select {
     height: 220px;
     right: -82px;
     bottom: -104px;
-    border: 1px solid rgba(231, 163, 75, .46);
+    border: 1px solid rgba(153, 101, 47, .46);
     border-radius: 50%;
-    box-shadow: 0 0 0 22px rgba(255, 255, 255, .04), 0 0 0 56px rgba(231, 163, 75, .06);
+    box-shadow: 0 0 0 22px rgba(255, 255, 255, .04), 0 0 0 56px rgba(153, 101, 47, .06);
     opacity: 1
 }
 
@@ -309,8 +309,8 @@ select {
 .hero-device-side {
     width: min(72%, 220px);
     margin-left: auto;
-    background: linear-gradient(135deg, rgba(231, 163, 75, .18), rgba(255,255,255,.08));
-    border-color: rgba(231, 163, 75, .36)
+    background: linear-gradient(135deg, rgba(153, 101, 47, .18), rgba(255,255,255,.08));
+    border-color: rgba(153, 101, 47, .36)
 }
 
 .section {
@@ -351,15 +351,15 @@ select {
 
 .product-card:hover {
     transform: translateY(-6px);
-    border-color: rgba(20, 125, 104, .26);
-    box-shadow: 0 18px 32px rgba(14, 92, 78, .12)
+    border-color: rgba(41, 75, 62, .26);
+    box-shadow: 0 18px 32px rgba(24, 58, 47, .12)
 }
 
 .product-image {
     display: block;
     aspect-ratio: 1.4;
     overflow: hidden;
-    background: linear-gradient(135deg, rgba(20, 125, 104, .06), rgba(231, 163, 75, .08))
+    background: linear-gradient(135deg, rgba(41, 75, 62, .05), rgba(153, 101, 47, .08))
 }
 
 .product-image img {
@@ -458,11 +458,11 @@ select {
 .button-primary {
     background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
     color: #fff;
-    box-shadow: 0 10px 18px rgba(20, 125, 104, .18)
+    box-shadow: 0 10px 18px rgba(24, 58, 47, .18)
 }
 
 .button-primary:hover {
-    background: linear-gradient(135deg, #1d8d73 0%, #0d574d 100%)
+    background: linear-gradient(135deg, #214638 0%, #102e25 100%)
 }
 
 .button-text-animate {
@@ -917,7 +917,7 @@ select {
 .form-panel input:focus {
     background: #fff;
     border-color: var(--accent);
-    box-shadow: 0 0 0 4px rgba(20, 125, 104, .12);
+    box-shadow: 0 0 0 4px rgba(153, 101, 47, .16);
     outline: 0
 }
 

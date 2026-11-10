@@ -24,7 +24,29 @@ const writeCart = (cart) => localStorage.setItem(cartKey, JSON.stringify([...new
 let currencyOutsideClickBound = false;
 let catalogProducts = null;
 let renderSequence = 0;
-function addToCart(productId, button) { const cart = readCart(); const alreadyAdded = cart.includes(productId); if (!alreadyAdded) { cart.push(productId); writeCart(cart); updateCartCount(); } const original = button.textContent; button.textContent = t(alreadyAdded ? "cart.alreadyAdded" : "cart.added"); button.disabled = true; setTimeout(() => { button.textContent = original; button.disabled = false; }, 1600); }
+function addToCart(productId, button) {
+  const cart = readCart();
+  const alreadyAdded = cart.includes(productId);
+  if (!alreadyAdded) {
+    cart.push(productId);
+    writeCart(cart);
+    updateCartCount();
+  }
+  const originalContent = button.innerHTML;
+  const originalLabel = button.getAttribute("aria-label");
+  const message = t(alreadyAdded ? "cart.alreadyAdded" : "cart.added");
+  button.innerHTML = `<span class="button-label">${escapeHtml(message)}</span><span class="button-icon" aria-hidden="true">✓</span>`;
+  button.setAttribute("aria-label", message);
+  button.classList.add("is-added");
+  button.disabled = true;
+  setTimeout(() => {
+    button.innerHTML = originalContent;
+    if (originalLabel) button.setAttribute("aria-label", originalLabel);
+    else button.removeAttribute("aria-label");
+    button.classList.remove("is-added");
+    button.disabled = false;
+  }, 1600);
+}
 
 function showCatalogLoading(target) {
   target.innerHTML = `<div class="catalog-state" role="status" aria-live="polite">${escapeHtml(t("catalog.loading"))}</div>`;
@@ -135,32 +157,48 @@ function renderChrome() {
         <img src="assets/Background/logo.png" alt="" width="43" height="43">
         <span>PGD</span><span>Market</span>
       </a>
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="${t("navigation.openMenu")}" data-i18n-aria-label="navigation.openMenu">
-        <span class="menu-toggle-label" data-i18n="navigation.menu"></span><span class="menu-toggle-icon" aria-hidden="true"></span>
-      </button>
       <nav id="main-nav" class="main-nav" aria-label="${t("navigation.mainNavigation")}" data-i18n-aria-label="navigation.mainNavigation">
         <a href="boutique.html" data-i18n="navigation.shop"></a>
         <a href="contact.html" data-i18n="navigation.contact"></a>
-        <a href="panier.html" aria-label="${t("navigation.cart")}" data-i18n-aria-label="navigation.cart">
-          <span data-i18n="navigation.cart"></span> <span class="cart-count" data-cart-count aria-label="${t("navigation.cartCount")}" data-i18n-aria-label="navigation.cartCount">0</span>
-        </a>
       </nav>
+      <a class="cart-link" href="panier.html" aria-label="${t("navigation.cart")}">
+        <svg class="cart-link__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3.5 4.5h2l2.1 10.1a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 1.9-1.5l1.4-6.2H7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="19.5" r="1" fill="currentColor"/><circle cx="17.5" cy="19.5" r="1" fill="currentColor"/></svg>
+        <span class="cart-link__label" data-i18n="navigation.cart"></span>
+        <span class="cart-count" data-cart-count aria-hidden="true">0</span>
+      </a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="${t("navigation.openMenu")}" data-i18n-aria-label="navigation.openMenu">
+        <span class="menu-toggle-label" data-i18n="navigation.menu"></span><span class="menu-toggle-icon" aria-hidden="true"></span>
+      </button>
     </div>`;
   document.querySelector("[data-footer]").innerHTML = `
     <div class="footer-inner">
-      <div>
-        <a class="brand footer-brand" href="index.html" aria-label="${t("navigation.brandHome")}" data-i18n-aria-label="navigation.brandHome"><span>PGD</span><span>Market</span></a>
-        <p data-i18n="footer.description"></p>
+      <div class="footer-brand-block">
+        <p class="footer-kicker" data-i18n="footer.signature"></p>
+        <a class="brand footer-brand" href="index.html" aria-label="${t("navigation.brandHome")}" data-i18n-aria-label="navigation.brandHome">
+          <img src="assets/Background/logo.png" alt="" width="43" height="43">
+          <span>PGD</span><span>Market</span>
+        </a>
+        <p class="footer-description" data-i18n="footer.description"></p>
+        <a class="footer-cta" href="boutique.html">
+          <span data-i18n="footer.shopCta"></span><span aria-hidden="true">↗</span>
+        </a>
       </div>
-      <div>
-        <strong data-i18n="footer.information"></strong>
+      <nav class="footer-column" aria-label="${t("footer.explore")}" data-i18n-aria-label="footer.explore">
+        <strong data-i18n="footer.explore"></strong>
         <a href="boutique.html" data-i18n="navigation.shop"></a>
+        <a href="panier.html" data-i18n="navigation.cart"></a>
         <a href="contact.html" data-i18n="navigation.contact"></a>
+      </nav>
+      <nav class="footer-column" aria-label="${t("footer.information")}" data-i18n-aria-label="footer.information">
+        <strong data-i18n="footer.information"></strong>
         <a href="mentions-legales.html" data-i18n="legal.title"></a>
         <a href="politique-confidentialite.html" data-i18n="footer.privacy"></a>
-      </div>
+      </nav>
     </div>
-    <div class="footer-bottom" data-i18n="footer.copyright"></div>`;
+    <div class="footer-bottom">
+      <span data-i18n="footer.copyright"></span>
+      <span class="footer-note" data-i18n="footer.brandNote"></span>
+    </div>`;
   const toggle = document.querySelector(".menu-toggle");
   const nav = document.querySelector(".main-nav");
   const closeMenu = () => {
@@ -211,7 +249,10 @@ function productCard(product, index = 0) {
           <span>Contenu numérique</span>
         </div>
         <div class="product-actions">
-          <a class="button button-primary" href="${productUrl}">${escapeHtml(t("product.view"))}<span aria-hidden="true">→</span></a>
+          <button class="button button-primary product-card__add" type="button" data-add-cart="${escapeHtml(product.id)}">
+            <span class="button-label">${escapeHtml(t("product.add"))}</span><span class="button-icon" aria-hidden="true">+</span>
+          </button>
+          <a class="text-link product-card__view" href="${productUrl}">${escapeHtml(t("product.view"))}<span aria-hidden="true">→</span></a>
         </div>
       </div>
     </article>`;
@@ -223,7 +264,20 @@ function currencyPickerMarkup(className, dataAttribute) {
 }
 
 function bindCartButtons(root = document) { root.querySelectorAll("[data-add-cart]").forEach((button) => button.addEventListener("click", () => addToCart(button.dataset.addCart, button))); }
-function updateCartCount() { const cart = readCart(); document.querySelectorAll("[data-cart-count]").forEach((element) => { element.textContent = cart.length; }); }
+function updateCartCount() {
+  const count = readCart().length;
+  document.querySelectorAll("[data-cart-count]").forEach((element) => {
+    element.textContent = count;
+  });
+  document.querySelectorAll(".cart-link").forEach((link) => {
+    const labelKey = count === 0
+      ? "navigation.cartCountEmpty"
+      : count === 1
+        ? "navigation.cartCountOne"
+        : "navigation.cartCountMany";
+    link.setAttribute("aria-label", t(labelKey, { count }));
+  });
+}
 function setupShop() {
   const output = document.getElementById("shop-products");
   const search = document.getElementById("search");
@@ -305,7 +359,7 @@ function setupProduct(product) {
   const name = productText(product, "name");
   document.title = `${name} | ${t("siteName")}`;
   const checkoutUrl = `commande.html?id=${encodeURIComponent(product.id)}`;
-  const actions = `<div class="product-actions"><a class="button button-primary" href="${checkoutUrl}">${escapeHtml(t("product.order"))}</a><button class="button button-outline" type="button" data-add-cart="${escapeHtml(product.id)}">${escapeHtml(t("product.add"))}</button></div>`;
+  const actions = `<div class="product-actions"><a class="button button-primary" href="${checkoutUrl}"><span>${escapeHtml(t("product.order"))}</span><span aria-hidden="true">→</span></a><button class="button button-cart" type="button" data-add-cart="${escapeHtml(product.id)}"><span class="button-label">${escapeHtml(t("product.add"))}</span><span class="button-icon" aria-hidden="true">+</span></button></div>`;
   const paymentLogos = [{ name: "Orange Money", file: "orange-money.svg" }, { name: "Moov Money", file: "moov-money.png" }, { name: "Wave", file: "wave.svg" }, { name: "Visa", file: "visa.svg" }, { name: "Mastercard", file: "mastercard.svg" }, { name: "Bitcoin", file: "bitcoin.svg" }];
   const paymentMethods = `<div class="payment-methods" aria-label="${escapeHtml(t("productDetails.paymentMethods"))}"><p>${escapeHtml(t("productDetails.paymentMethods"))}</p><div class="payment-method-list">${paymentLogos.map((payment) => `<span class="payment-method"><img src="assets/payments/${payment.file}" alt="${payment.name}"></span>`).join("")}</div></div>`;
   const purchasePanel = `<aside class="product-purchase" aria-label="${escapeHtml(t("productDetails.purchaseOverview"))}"><p class="purchase-label">${escapeHtml(t("productDetails.purchaseOverview"))}</p><p class="product-price">${escapeHtml(formatPrice(product))}</p>${actions}${paymentMethods}<div class="purchase-links"><a href="contact.html">${escapeHtml(t("navigation.contact"))}</a><span aria-hidden="true">|</span><a href="contact.html">${escapeHtml(t("productDetails.report"))}</a></div><details class="purchase-help"><summary>${escapeHtml(t("productDetails.purchaseHelpTitle"))}</summary><p>${escapeHtml(t("productDetails.purchaseHelpText"))}</p></details></aside>`;
@@ -414,7 +468,15 @@ function setupCart() {
     ? `<div class="catalog-state" role="status"><p>${escapeHtml(t("cart.staleReferences", { count: staleIds.length }))}</p><button class="button button-danger" type="button" data-remove-stale>${escapeHtml(t("cart.removeStale"))}</button></div>`
     : "";
   if (!items.length) {
-    content.innerHTML = `${staleNotice}<p>${escapeHtml(t("cart.empty"))}</p><div class="cart-actions"><button class="button button-disabled" type="button" disabled>${escapeHtml(t("cart.checkout"))}</button><a class="button button-primary" href="boutique.html">${escapeHtml(t("cart.discover"))}</a></div>`;
+    content.innerHTML = `${staleNotice}<section class="cart-empty" aria-labelledby="cart-empty-title">
+      <span class="cart-empty__mark" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none"><path d="M10 17h28l-3 23H13l-3-23Z" stroke="currentColor" stroke-width="1.5"/><path d="M17 19v-5a7 7 0 0 1 14 0v5M18 25v.5M30 25v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </span>
+      <p class="eyebrow">${escapeHtml(t("cart.emptyEyebrow"))}</p>
+      <h2 id="cart-empty-title">${escapeHtml(t("cart.empty"))}</h2>
+      <p class="cart-empty__copy">${escapeHtml(t("cart.emptyDescription"))}</p>
+      <a class="button button-primary" href="boutique.html"><span>${escapeHtml(t("cart.discover"))}</span><span aria-hidden="true">→</span></a>
+    </section>`;
   } else {
     const totalInXof = items.reduce(
       (sum, product) => sum + convertPriceBetweenCurrencies(product.price, product.currency, "XOF"),
@@ -422,12 +484,35 @@ function setupCart() {
     );
     const rows = items.map((product) => {
       const name = productText(product, "name");
-      return `<div class="cart-item"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(name)}"><div><h2>${escapeHtml(name)}</h2><strong>${escapeHtml(formatPrice(product))}</strong></div><button class="button button-small button-danger" type="button" data-remove="${escapeHtml(product.id)}">${escapeHtml(t("cart.remove"))}</button></div>`;
+      const productUrl = `produit.html?id=${encodeURIComponent(product.id)}`;
+      return `<article class="cart-item">
+        <a class="cart-item__visual" href="${productUrl}" aria-label="${escapeHtml(t("product.view"))} : ${escapeHtml(name)}"><img src="${escapeHtml(productImage(product))}" alt="" loading="lazy" decoding="async"></a>
+        <div class="cart-item__details">
+          <p class="eyebrow">PGD Market · Ressource numérique</p>
+          <h2><a href="${productUrl}">${escapeHtml(name)}</a></h2>
+          <div class="cart-item__meta">
+            <strong>${escapeHtml(formatPrice(product))}</strong>
+            <span class="cart-item__quantity"><span>${escapeHtml(t("cart.quantity"))}</span><b>1</b></span>
+          </div>
+        </div>
+        <button class="button button-remove" type="button" data-remove="${escapeHtml(product.id)}">
+          <span class="button-remove__icon" aria-hidden="true">−</span><span>${escapeHtml(t("cart.remove"))}</span>
+        </button>
+      </article>`;
     }).join("");
     const checkout = items.length === 1
-      ? `<a class="button button-primary" href="commande.html?id=${encodeURIComponent(items[0].id)}">${escapeHtml(t("cart.checkout"))}</a>`
-      : `<div class="cart-order-options"><p class="form-message">${escapeHtml(t("cart.groupUnavailable"))}</p>${items.map((product) => `<a class="text-link" href="commande.html?id=${encodeURIComponent(product.id)}">${escapeHtml(t("cart.singleCheckout"))} : ${escapeHtml(productText(product, "name"))}</a>`).join("")}</div>`;
-    content.innerHTML = `${staleNotice}<div class="cart-items">${rows}</div><div class="cart-summary"><p>${escapeHtml(t("cart.subtotal"))} : <strong>${escapeHtml(formatDisplayPrice(totalInXof, "XOF"))}</strong></p><p>${escapeHtml(t("cart.total"))} : <strong>${escapeHtml(formatDisplayPrice(totalInXof, "XOF"))}</strong></p><div class="cart-actions">${checkout}<button class="button button-outline" type="button" data-clear-cart>${escapeHtml(t("cart.clear"))}</button></div></div>`;
+      ? `<a class="button button-primary" href="commande.html?id=${encodeURIComponent(items[0].id)}"><span>${escapeHtml(t("cart.checkout"))}</span><span aria-hidden="true">→</span></a>`
+      : `<div class="cart-order-options"><p class="form-message">${escapeHtml(t("cart.groupUnavailable"))}</p>${items.map((product) => `<a class="text-link" href="commande.html?id=${encodeURIComponent(product.id)}">${escapeHtml(t("cart.singleCheckout"))} : ${escapeHtml(productText(product, "name"))}<span aria-hidden="true">→</span></a>`).join("")}</div>`;
+    const itemCountLabel = items.length === 1 ? "cart.itemOne" : "cart.itemMany";
+    content.innerHTML = `${staleNotice}
+      <div class="cart-items">${rows}</div>
+      <aside class="cart-summary" aria-label="${escapeHtml(t("cart.summary"))}">
+        <p class="eyebrow">${escapeHtml(t("cart.summary"))}</p>
+        <div class="cart-summary__count"><span>${escapeHtml(t(itemCountLabel, { count: items.length }))}</span><span>${escapeHtml(t("cart.quantity"))} <b>${items.length}</b></span></div>
+        <div class="cart-summary__total"><span>${escapeHtml(t("cart.total"))}</span><strong>${escapeHtml(formatDisplayPrice(totalInXof, "XOF"))}</strong></div>
+        <p class="cart-summary__note">${escapeHtml(t("cart.summaryNote"))}</p>
+        <div class="cart-actions">${checkout}<button class="button button-clear" type="button" data-clear-cart>${escapeHtml(t("cart.clear"))}</button></div>
+      </aside>`;
     content.querySelectorAll("[data-remove]").forEach((button) => button.addEventListener("click", () => {
       writeCart(ids.filter((id) => id !== button.dataset.remove));
       setupCart();
@@ -519,6 +604,7 @@ async function renderPage({ retryCatalog = false } = {}) {
 renderChrome();
 await initFrench();
 updateMenuToggleLabel();
+updateCartCount();
 renderPage();
 bindCheckoutCurrency();
 
