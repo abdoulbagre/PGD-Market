@@ -6,8 +6,8 @@ import {
   initializeCatalog,
   readCatalog,
   writeCatalog
-} from "../netlify/functions/_catalog.mjs";
-import { createCatalogHandler } from "../netlify/functions/catalog.mjs";
+} from "../backend/functions/_catalog.mjs";
+import { createCatalogHandler } from "../backend/functions/catalog.mjs";
 
 const ADMIN = { id: "admin-user", roles: ["admin"] };
 const MEMBER = { id: "member-user", roles: ["member"] };
@@ -20,8 +20,8 @@ const SITE_CONTEXT = {
 
 const product = (overrides = {}) => ({
   id: "550e8400-e29b-41d4-a716-446655440000",
-  name: { fr: "Produit FR", en: "Product EN" },
-  description: { fr: "Description FR", en: "Description EN" },
+  name: "Produit FR",
+  description: "Description FR",
   price: 4200,
   currency: "XOF",
   image: "assets/images/1.jpg",
@@ -62,7 +62,7 @@ const initialCatalog = (products = [
   product(),
   product({
     id: "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90",
-    name: { fr: "Deuxième produit", en: "Second product" },
+    name: "Deuxième produit",
     image: "assets/images/2.jpg",
     chariowProductId: "prd_existing_456"
   })
@@ -90,8 +90,8 @@ test("concurrent conditional writes return an explicit 412 without leaking stora
 });
 
 const editableProduct = (overrides = {}) => ({
-  name: { fr: "Nouveau produit", en: "New product" },
-  description: { fr: "Description", en: "Description" },
+  name: "Nouveau produit",
+  description: "Description française",
   price: 2500,
   currency: "XOF",
   image: "assets/images/new.jpg",
@@ -235,10 +235,25 @@ test("GET denies authenticated users without the admin role", async () => {
   assertNoStore(response);
 });
 
-test("catalog access rejects non-production and incomplete Netlify contexts before storage access", async (t) => {
+test("catalog reads are available to administrators on the PGD Market site in preview contexts", async (t) => {
   for (const [name, context] of [
     ["deploy preview", { ...SITE_CONTEXT, deploy: { context: "deploy-preview" } }],
-    ["branch deploy", { ...SITE_CONTEXT, deploy: { context: "branch-deploy" } }],
+    ["branch deploy", { ...SITE_CONTEXT, deploy: { context: "branch-deploy" } }]
+  ]) {
+    await t.test(name, async () => {
+      const fixture = await createFixture();
+      fixture.operations.reads = 0;
+      const response = await fixture.handler(makeRequest("GET"), context);
+      assert.equal(response.status, 200);
+      assert.equal(fixture.operations.reads, 1);
+      assert.equal(fixture.operations.writes, 0);
+      assertNoStore(response);
+    });
+  }
+});
+
+test("catalog reads reject contexts from another or unidentified site", async (t) => {
+  for (const [name, context] of [
     ["wrong site", { ...SITE_CONTEXT, site: { id: "another-site" } }],
     ["missing context", null]
   ]) {
@@ -247,11 +262,27 @@ test("catalog access rejects non-production and incomplete Netlify contexts befo
       fixture.operations.reads = 0;
       const response = await fixture.handler(makeRequest("GET"), context);
       assert.equal(response.status, 403);
-      assert.equal((await response.json()).error, "PRODUCTION_CONTEXT_REQUIRED");
+      assert.equal((await response.json()).error, "PGD_SITE_REQUIRED");
       assert.equal(fixture.operations.reads, 0);
       assertNoStore(response);
     });
   }
+});
+
+test("catalog mutations remain production-only from a Deploy Preview", async () => {
+  const fixture = await createFixture();
+  fixture.operations.reads = 0;
+  fixture.operations.writes = 0;
+
+  const response = await fixture.handler(
+    makeRequest("POST", { body: editableProduct() }),
+    { ...SITE_CONTEXT, deploy: { context: "deploy-preview" } }
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "PRODUCTION_CONTEXT_REQUIRED");
+  assert.equal(fixture.operations.reads, 0);
+  assert.equal(fixture.operations.writes, 0);
 });
 
 test("GET returns the full catalog and its ETag to an administrator", async () => {
@@ -415,6 +446,8 @@ test("POST creates a validated product using a generated UUID and conditional sa
   assert.equal(body.products[2].id, "91e2d3c4-5f6a-4789-ab01-23456789cdef");
   assert.equal(body.products[2].createdAt, NOW);
   assert.equal(body.products[2].updatedAt, NOW);
+  assert.equal(body.products[2].name, "Nouveau produit");
+  assert.equal(body.products[2].description, "Description française");
   assert.equal(response.headers.get("etag"), '"version-2"');
   assertNoStore(response);
 });
@@ -506,6 +539,7 @@ test("PUT preserves product identity, dates, and the existing Chariow ID", async
     url: `https://shop.example/.netlify/functions/catalog?id=${product().id}`,
     body: {
       ...editableProduct({ chariowProductId: "prd_existing_123" }),
+      description: "Description française modifiée",
       price: 4900
     }
   }));
@@ -516,6 +550,7 @@ test("PUT preserves product identity, dates, and the existing Chariow ID", async
   assert.equal(body.products[0].createdAt, product().createdAt);
   assert.equal(body.products[0].chariowProductId, product().chariowProductId);
   assert.equal(body.products[0].price, 4900);
+  assert.equal(body.products[0].description, "Description française modifiée");
   assertNoStore(response);
 });
 

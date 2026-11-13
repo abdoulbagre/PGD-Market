@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CatalogStorageError } from "../netlify/lib/catalog/_catalog.mjs";
-import { createPublicCatalogHandler } from "../netlify/functions/public-catalog.mjs";
+import { CatalogStorageError } from "../backend/services/catalog/_catalog.mjs";
+import { createPublicCatalogHandler } from "../backend/functions/public-catalog.mjs";
 
 const ORIGIN = "https://pgd-market.netlify.app";
 const product = (overrides = {}) => ({
   id: "550e8400-e29b-41d4-a716-446655440000",
-  name: { fr: "Produit FR", en: "Product EN" },
-  description: { fr: "Description FR", en: "Description EN" },
+  name: "Produit FR",
+  description: "Description FR",
   price: 4200,
   currency: "XOF",
   image: "assets/images/1.jpg",
@@ -74,6 +74,23 @@ test("public GET includes only visible products and projects public fields", asy
     "category", "currency", "description", "id", "image", "name", "price"
   ]);
   assert.doesNotMatch(JSON.stringify(body), /chariow|archivedAt|createdAt|updatedAt|schemaVersion|delivery|fichier/i);
+});
+
+test("public catalog projects French values from existing bilingual records", async () => {
+  const legacy = product({
+    name: { fr: "Nom français conservé", en: "Legacy English name" },
+    description: {
+      fr: "Description française conservée",
+      en: "Legacy English description"
+    }
+  });
+  const response = await handlerFor(catalog([legacy]))(request());
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.products[0].name, "Nom français conservé");
+  assert.equal(body.products[0].description, "Description française conservée");
+  assert.doesNotMatch(JSON.stringify(body), /Legacy English/);
 });
 
 test("public endpoint rejects non-GET methods without reading storage", async () => {

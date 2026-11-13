@@ -9,8 +9,8 @@ const loadBrowserModule = async (path) => {
 };
 
 const [{ CatalogLoadError, createCatalogClient, isPublicProduct }, currency] = await Promise.all([
-  loadBrowserModule("../public/assets/js/catalog.js"),
-  loadBrowserModule("../public/assets/js/currency.js")
+  loadBrowserModule("../frontend/storefront/assets/js/catalog.js"),
+  loadBrowserModule("../frontend/storefront/assets/js/currency.js")
 ]);
 
 const product = (overrides = {}) => ({
@@ -120,39 +120,58 @@ test("failed requests can be retried and a successful result is then cached", as
   assert.equal(calls, 2);
 });
 
-test("display prices convert from the product's actual base currency", () => {
-  assert.equal(currency.convertPriceBetweenCurrencies(4200, "XOF", "XOF"), 4200);
-  assert.equal(currency.convertPriceBetweenCurrencies(100, "EUR", "XOF"), 100 / 0.00152);
-  assert.equal(currency.convertPriceBetweenCurrencies(100, "USD", "EUR"), 100 / 0.00165 * 0.00152);
-  assert.match(currency.formatDisplayPrice(100, "EUR", "EUR"), /100/);
+test("catalog prices retain their currency and mixed-currency totals are not calculated", () => {
+  assert.equal("convertPriceBetweenCurrencies" in currency, false);
+  assert.equal(currency.CHECKOUT_CURRENCY, "XOF");
+  assert.match(currency.formatDisplayPrice(4200, "XOF"), /4.*200/);
+  assert.match(currency.formatDisplayPrice(4200, "XOF"), /XOF/);
+  assert.match(currency.formatDisplayPrice(100, "EUR"), /100.*EUR/);
+  assert.deepEqual(currency.sumPricesInSameCurrency([product(), product({ price: 700 })]), {
+    amount: 4900,
+    currency: "XOF"
+  });
+  assert.equal(currency.sumPricesInSameCurrency([product(), product({ currency: "EUR" })]), null);
+  assert.equal(currency.sumPricesInSameCurrency([]), null);
 });
 
 test("storefront pages use catalog data and payment request omits amount and Chariow ID", async () => {
-  const app = await readFile(new URL("../public/assets/js/app.js", import.meta.url), "utf8");
+  const app = await readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8");
+  const successPage = await readFile(new URL("../frontend/storefront/success.html", import.meta.url), "utf8");
   const htmlPages = await Promise.all([
-    "../public/index.html",
-    "../public/boutique.html",
-    "../public/produit.html",
-    "../public/panier.html",
-    "../public/commande.html"
+    "../frontend/storefront/index.html",
+    "../frontend/storefront/boutique.html",
+    "../frontend/storefront/produit.html",
+    "../frontend/storefront/panier.html",
+    "../frontend/storefront/commande.html"
   ].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
 
   assert.match(app, /createCatalogClient\(\)/);
   assert.doesNotMatch(app, /from "\.\/products\.js"/);
+  assert.doesNotMatch(app, /convertPriceBetweenCurrencies/);
   assert.match(app, /catalogProducts\.find\(\(product\) => product\.id === id\)/);
   assert.match(app, /shop\.noResults/);
   assert.match(app, /catalog\.noProducts/);
-  assert.match(app, /produitId: product\.id, currency: selectedCurrency/);
+  assert.match(app, /produitId: product\.id, currency: CHECKOUT_CURRENCY/);
+  assert.match(app, /sumPricesInSameCurrency/);
+  assert.match(app, /memoryCart/);
+  assert.match(app, /cartStorageUnavailable/);
+  assert.match(htmlPages[4], /maxlength="2"/);
   assert.doesNotMatch(app.match(/JSON\.stringify\(\{[^}]+\}\)/)?.[0] || "", /price|chariowProductId/);
   assert.ok(htmlPages.every((html) => html.includes('assets/js/app.js')));
   assert.match(app, /data-catalog-retry/);
+  assert.match(successPage, /Retour du paiement/);
+  assert.match(successPage, /ne confirme pas à elle seule le statut/);
+  assert.doesNotMatch(successPage, /paiement réussi|commande a été effectuée avec succès|data-i18n="successPage/);
+  assert.doesNotMatch(app, /successPage\.(heading|delivery|spam|thanks)/);
+  const resultPageLogic = app.slice(app.indexOf("function setupResult"), app.indexOf("async function renderPage"));
+  assert.doesNotMatch(resultPageLogic, /localStorage|writeCart/);
 });
 
 test("storefront cart CTAs expose add feedback and an accessible cart count", async () => {
   const [app, fr, theme] = await Promise.all([
-    readFile(new URL("../public/assets/js/app.js", import.meta.url), "utf8"),
-    readFile(new URL("../public/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
-    readFile(new URL("../public/assets/css/premium.css", import.meta.url), "utf8")
+    readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/storefront/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("../frontend/storefront/assets/css/premium.css", import.meta.url), "utf8")
   ]);
   assert.match(app, /button\.classList\.add\("is-added"\)/);
   assert.match(app, /cart\.added/);
@@ -172,9 +191,9 @@ test("storefront cart CTAs expose add feedback and an accessible cart count", as
 
 test("the storefront uses French text only and has no English locale dependency", async () => {
   const [fr, app, frenchModule] = await Promise.all([
-    readFile(new URL("../public/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
-    readFile(new URL("../public/assets/js/app.js", import.meta.url), "utf8"),
-    readFile(new URL("../public/assets/js/french.js", import.meta.url), "utf8")
+    readFile(new URL("../frontend/storefront/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/storefront/assets/js/french.js", import.meta.url), "utf8")
   ]);
   assert.equal(typeof fr.catalog.loading, "string");
   assert.equal(typeof fr.catalog.noProducts, "string");
@@ -190,5 +209,5 @@ test("the storefront uses French text only and has no English locale dependency"
   assert.match(app, /initFrench/);
   assert.doesNotMatch(app, /languagechange|documentElement\.lang === "en"|language\.js|en\.json/);
   assert.doesNotMatch(frenchModule, /setLanguage|data-language-select|en\.json|localStorage/);
-  assert.equal(existsSync(new URL("../public/locales/en.json", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../frontend/storefront/locales/en.json", import.meta.url)), false);
 });

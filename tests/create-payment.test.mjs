@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import test from "node:test";
-import { isPurchasable } from "../netlify/lib/catalog/_catalog-model.mjs";
+import { isPurchasable } from "../backend/services/catalog/_catalog-model.mjs";
 
 const require = createRequire(import.meta.url);
-const { createPaymentHandler } = require("../netlify/functions/create-payment.js");
+const { createPaymentHandler } = require("../backend/functions/create-payment.js");
 
 const product = (overrides = {}) => ({
   id: "550e8400-e29b-41d4-a716-446655440000",

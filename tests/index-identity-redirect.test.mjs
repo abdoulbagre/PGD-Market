@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import test from "node:test";
 
-const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+const html = readFileSync(new URL("../frontend/storefront/index.html", import.meta.url), "utf8");
 const scriptMatch = html.match(/<script>\s*(const identityCallbackParams[\s\S]*?)<\/script>/);
 
 assert.ok(scriptMatch, "The early Identity redirect script should exist.");

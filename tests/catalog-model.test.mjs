@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import catalogSeed from "../backend/data/catalog-seed.json" with { type: "json" };
 import {
   assertImmutableProductId,
   buildLegacyCatalog,
@@ -11,33 +12,28 @@ import {
   isPurchasable,
   validateCatalog,
   validateProduct
-} from "../netlify/functions/_catalog-model.mjs";
+} from "../backend/functions/_catalog-model.mjs";
 import {
   initializeCatalog,
   initializeCatalogFromLegacy,
+  prepareInitialCatalogFromSeed,
   prepareInitialCatalogFromLegacy,
   readCatalog,
   saveCatalog
-} from "../netlify/functions/_catalog.mjs";
+} from "../backend/functions/_catalog.mjs";
 
 const require = createRequire(import.meta.url);
-const serverProducts = require("../netlify/functions/_products.js").products;
+const serverProducts = require("../backend/functions/_products.js").products;
 const publicSource = await readFile(
-  new URL("../public/assets/js/products.js", import.meta.url),
+  new URL("../frontend/storefront/assets/js/products.js", import.meta.url),
   "utf8"
 );
 const publicModule = await import(
   `data:text/javascript;base64,${Buffer.from(publicSource).toString("base64")}`
 );
-const englishLocale = JSON.parse(await readFile(
-  new URL("../public/locales/en.json", import.meta.url),
-  "utf8"
-));
-
 const products = buildLegacyCatalog({
   publicProducts: publicModule.products,
   serverProducts,
-  englishTranslations: englishLocale.products,
   referenceCurrency: "XOF"
 });
 
@@ -116,7 +112,7 @@ test("removes the three ineligible products from the public source and canonical
   assert.equal(publicModule.products.length, 2);
 });
 
-test("preserves Chariow IDs and both language values", () => {
+test("preserves French product text and Chariow IDs", () => {
   assert.deepEqual(
     products.filter(({ chariowProductId }) => chariowProductId)
       .map(({ id, chariowProductId }) => [id, chariowProductId]),
@@ -124,32 +120,52 @@ test("preserves Chariow IDs and both language values", () => {
   );
   for (const legacyProduct of publicModule.products) {
     const product = products.find(({ id }) => id === legacyProduct.id);
-    assert.deepEqual(product.name, {
-      fr: legacyProduct.nom,
-      en: englishLocale.products[legacyProduct.id].name
-    });
-    assert.deepEqual(product.description, {
-      fr: legacyProduct.description,
-      en: englishLocale.products[legacyProduct.id].description
-    });
+    assert.equal(product.name, legacyProduct.nom);
+    assert.equal(product.description, legacyProduct.description);
   }
 });
 
-test("keeps image, description, translation, and category data for public display", () => {
+test("keeps image, French description, and category data for public display", () => {
   for (const legacyProduct of publicModule.products) {
     const product = products.find(({ id }) => id === legacyProduct.id);
     assert.equal(product.image, legacyProduct.image);
     assert.equal(product.category, legacyProduct.categorie);
-    assert.deepEqual(product.description, {
-      fr: legacyProduct.description,
-      en: englishLocale.products[legacyProduct.id].description
-    });
+    assert.equal(product.description, legacyProduct.description);
   }
   assert.deepEqual(products.map(({ image }) => image), [
     "assets/images/1.jpg",
     "assets/images/2.jpg"
   ]);
   assert.deepEqual(products.map(({ category }) => category), ["", ""]);
+});
+
+test("backend seed preserves the two existing products and contains no delivery data", () => {
+  assert.equal(catalogSeed.products.length, 2);
+  const seededCatalog = prepareInitialCatalogFromSeed(catalogSeed, {
+    now: "2026-01-02T00:00:00.000Z"
+  });
+  assert.deepEqual(
+    seededCatalog.products.map(({ id, price, currency, chariowProductId }) =>
+      [id, price, currency, chariowProductId]
+    ),
+    products.map(({ id, price, currency, chariowProductId }) =>
+      [id, price, currency, chariowProductId]
+    )
+  );
+  assert.deepEqual(
+    seededCatalog.products.map(({ name, description, image, category, available, published, archivedAt }) =>
+      [name, description, image, category, available, published, archivedAt]
+    ),
+    products.map(({ name, description, image, category, available, published, archivedAt }) =>
+      [name, description, image, category, available, published, archivedAt]
+    )
+  );
+  assert.ok(catalogSeed.products.every((product) =>
+    !("file" in product) &&
+    !("files" in product) &&
+    !("fichier" in product) &&
+    !("fichiers" in product)
+  ));
 });
 
 test("excludes all locally managed digital delivery references", () => {
@@ -233,11 +249,7 @@ test("rejects duplicate IDs, invalid prices, currencies, paths, translations, an
   assert.throws(() => validateProduct({ ...products[0], chariowProductId: "bad id" }), { code: "INVALID_CHARIOW_ID" });
   assert.throws(() => validateProduct({ ...products[0], chariowProductId: "wrong-prefix" }), { code: "INVALID_CHARIOW_ID" });
   assert.throws(
-    () => validateProduct({ ...products[0], name: { ...products[0].name, en: "" } }),
-    { code: "INVALID_TRANSLATION" }
-  );
-  assert.throws(
-    () => validateProduct({ ...products[0], name: { ...products[0].name, fr: "" } }),
+    () => validateProduct({ ...products[0], name: "" }),
     { code: "INVALID_TRANSLATION" }
   );
   assert.throws(
@@ -254,6 +266,20 @@ test("rejects duplicate IDs, invalid prices, currencies, paths, translations, an
   );
 });
 
+test("accepts existing bilingual catalog records and retains their French values", () => {
+  const legacyProduct = {
+    ...products[0],
+    name: { fr: "Nom français conservé", en: "Legacy English name" },
+    description: {
+      fr: "Description française conservée",
+      en: "Legacy English description"
+    }
+  };
+  assert.equal(validateProduct(legacyProduct, { allowUnknownDates: true }), legacyProduct);
+  assert.equal(legacyProduct.name.fr, "Nom français conservé");
+  assert.equal(legacyProduct.description.fr, "Description française conservée");
+});
+
 test("rejects a conflicting legacy price rather than silently changing it", () => {
   const conflictingServerProducts = serverProducts.map((product, index) =>
     index === 0 ? { ...product, prix: product.prix + 1 } : product
@@ -262,7 +288,6 @@ test("rejects a conflicting legacy price rather than silently changing it", () =
     () => buildLegacyCatalog({
       publicProducts: publicModule.products,
       serverProducts: conflictingServerProducts,
-      englishTranslations: englishLocale.products,
       referenceCurrency: "XOF"
     }),
     { code: "LEGACY_PRICE_CONFLICT" }
@@ -278,7 +303,6 @@ test("refuses to drop a product found only in the server catalog", () => {
     () => buildLegacyCatalog({
       publicProducts: publicModule.products,
       serverProducts: [...serverProducts, serverOnlyProduct],
-      englishTranslations: englishLocale.products,
       referenceCurrency: "XOF"
     }),
     { code: "SERVER_ONLY_PRODUCT" }
@@ -297,7 +321,6 @@ test("prepares a dated initial catalog from the two legacy products", () => {
   const catalog = prepareInitialCatalogFromLegacy({
     publicProducts: publicModule.products,
     serverProducts,
-    englishTranslations: englishLocale.products,
     referenceCurrency: "XOF",
     now: "2026-01-02T00:00:00.000Z"
   });
@@ -330,7 +353,6 @@ test("initializes from legacy sources only when explicitly called", async () => 
   const result = await initializeCatalogFromLegacy({
     publicProducts: publicModule.products,
     serverProducts,
-    englishTranslations: englishLocale.products,
     referenceCurrency: "XOF",
     now: "2026-01-02T00:00:00.000Z"
   }, { store });

@@ -1,15 +1,14 @@
-import { createRequire } from "node:module";
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline/promises";
+import catalogSeed from "../backend/data/catalog-seed.json" with { type: "json" };
 import {
   CatalogStorageError,
-  initializeCatalogFromLegacy,
-  prepareInitialCatalogFromLegacy,
+  initializeCatalog,
+  prepareInitialCatalogFromSeed,
   readCatalog
-} from "../netlify/functions/_catalog.mjs";
-import { validateCatalog } from "../netlify/functions/_catalog-model.mjs";
+} from "../backend/functions/_catalog.mjs";
+import { validateCatalog } from "../backend/functions/_catalog-model.mjs";
 
 export const CATALOG_TARGET = Object.freeze({
   siteHost: "pgd-market.netlify.app",
@@ -30,7 +29,6 @@ const EXPECTED_PRODUCTS = new Map([
   ]
 ]);
 
-const require = createRequire(import.meta.url);
 const EXPECTED_CONFIRMATION = "INITIALISER pgd-market-catalog";
 
 export class CatalogOperatorError extends Error {
@@ -43,28 +41,6 @@ export class CatalogOperatorError extends Error {
 
 const fail = (code, message) => {
   throw new CatalogOperatorError(code, message);
-};
-
-const loadLegacyData = async () => {
-  const publicSource = await readFile(
-    new URL("../public/assets/js/products.js", import.meta.url),
-    "utf8"
-  );
-  const publicModule = await import(
-    `data:text/javascript;base64,${Buffer.from(publicSource).toString("base64")}`
-  );
-  const serverProducts = require("../netlify/functions/_products.js").products;
-  const englishLocale = JSON.parse(await readFile(
-    new URL("../public/locales/en.json", import.meta.url),
-    "utf8"
-  ));
-
-  return {
-    publicProducts: publicModule.products,
-    serverProducts,
-    englishTranslations: englishLocale.products,
-    referenceCurrency: "XOF"
-  };
 };
 
 const readBlobsContext = (environment) => {
@@ -143,7 +119,7 @@ const verifyNetlifySite = async (context, fetchImpl) => {
   }
 };
 
-const validateExpectedCatalog = (catalog, legacyData) => {
+const validateExpectedCatalog = (catalog, seed) => {
   try {
     if (
       catalog?.schemaVersion !== CATALOG_TARGET.schemaVersion ||
@@ -154,9 +130,7 @@ const validateExpectedCatalog = (catalog, legacyData) => {
     }
     validateCatalog(catalog.products);
 
-    const publicById = new Map(
-      legacyData.publicProducts.map((product) => [product.id, product])
-    );
+    const seedById = new Map(seed.products.map((product) => [product.id, product]));
     const actualIds = new Set(catalog.products.map(({ id }) => id));
     if (
       actualIds.size !== EXPECTED_PRODUCTS.size ||
@@ -167,18 +141,16 @@ const validateExpectedCatalog = (catalog, legacyData) => {
 
     for (const product of catalog.products) {
       const expected = EXPECTED_PRODUCTS.get(product.id);
-      const publicProduct = publicById.get(product.id);
+      const seedProduct = seedById.get(product.id);
       if (
         !expected ||
-        !publicProduct ||
-        product.name.fr !== publicProduct.nom ||
-        product.description.fr !== publicProduct.description ||
-        product.name.en !== legacyData.englishTranslations?.[product.id]?.name ||
-        product.description.en !== legacyData.englishTranslations?.[product.id]?.description ||
-        !product.name.fr ||
-        !product.name.en ||
-        !product.description.fr ||
-        !product.description.en ||
+        !seedProduct ||
+        product.name !== seedProduct.name ||
+        product.description !== seedProduct.description ||
+        product.image !== seedProduct.image ||
+        product.category !== seedProduct.category ||
+        !product.name ||
+        !product.description ||
         product.price !== expected.price ||
         product.currency !== expected.currency ||
         product.chariowProductId !== expected.chariowProductId ||
@@ -194,9 +166,9 @@ const validateExpectedCatalog = (catalog, legacyData) => {
   }
 };
 
-const sameExpectedProducts = (catalog, legacyData) => {
+const sameExpectedProducts = (catalog, seed) => {
   try {
-    validateExpectedCatalog(catalog, legacyData);
+    validateExpectedCatalog(catalog, seed);
     return true;
   } catch {
     return false;
@@ -208,7 +180,7 @@ const printSummary = (catalog, log) => {
   log(`Products: ${catalog.products.length}`);
   for (const product of catalog.products) {
     log(
-      `- ${product.id} | ${product.name.fr} / ${product.name.en} | ` +
+      `- ${product.id} | ${product.name} | ` +
       `${product.price} ${product.currency} | ${product.chariowProductId} | ` +
       `published=${product.published} available=${product.available}`
     );
@@ -249,8 +221,8 @@ const readExpectedAbsence = async (read) => {
   fail("CATALOG_ALREADY_EXISTS", "A catalog already exists; initialization stopped.");
 };
 
-const verifyWrittenCatalog = (readResult, legacyData, returnedEtag) => {
-  validateExpectedCatalog(readResult.catalog, legacyData);
+const verifyWrittenCatalog = (readResult, seed, returnedEtag) => {
+  validateExpectedCatalog(readResult.catalog, seed);
   if (returnedEtag && returnedEtag !== readResult.etag) {
     fail("POST_WRITE_ETAG_MISMATCH", "The initialization ETag does not match the reread ETag.");
   }
@@ -279,20 +251,20 @@ export async function runCatalogInitialization({
 
   const log = dependencies.log ?? console.log;
   const read = dependencies.readCatalog ?? readCatalog;
-  const initialize = dependencies.initializeCatalogFromLegacy ?? initializeCatalogFromLegacy;
-  const loadData = dependencies.loadLegacyData ?? loadLegacyData;
+  const initialize = dependencies.initializeCatalog ?? initializeCatalog;
+  const loadSeed = dependencies.loadCatalogSeed ?? (async () => catalogSeed);
 
   log(`Environment: ${CATALOG_TARGET.environment}`);
   log(`Store: ${CATALOG_TARGET.store}`);
   log(`Key: ${CATALOG_TARGET.key}`);
   await readExpectedAbsence(read);
 
-  let legacyData;
+  let seed;
   let preparedCatalog;
   try {
-    legacyData = await loadData();
-    preparedCatalog = prepareInitialCatalogFromLegacy(legacyData);
-    validateExpectedCatalog(preparedCatalog, legacyData);
+    seed = await loadSeed();
+    preparedCatalog = prepareInitialCatalogFromSeed(seed);
+    validateExpectedCatalog(preparedCatalog, seed);
   } catch (error) {
     if (error instanceof CatalogOperatorError) throw error;
     fail("INITIAL_CATALOG_INVALID", "Initial catalog data failed validation.");
@@ -313,7 +285,7 @@ export async function runCatalogInitialization({
 
   let initialized;
   try {
-    initialized = await initialize(legacyData);
+    initialized = await initialize(preparedCatalog);
   } catch (error) {
     if (
       error instanceof CatalogStorageError &&
@@ -327,7 +299,7 @@ export async function runCatalogInitialization({
     } catch {
       fail("WRITE_OUTCOME_UNCERTAIN", "Write outcome is uncertain; reread could not confirm the catalog.");
     }
-    if (!sameExpectedProducts(reread.catalog, legacyData)) {
+    if (!sameExpectedProducts(reread.catalog, seed)) {
       fail("WRITE_OUTCOME_UNCERTAIN", "Write outcome is uncertain; reread did not find the expected catalog.");
     }
     log(`Write outcome is uncertain, but the expected catalog is present. ETag: ${reread.etag}`);
@@ -337,7 +309,7 @@ export async function runCatalogInitialization({
   let reread;
   try {
     reread = await read();
-    verifyWrittenCatalog(reread, legacyData, initialized.etag);
+    verifyWrittenCatalog(reread, seed, initialized.etag);
   } catch (error) {
     if (error instanceof CatalogOperatorError) throw error;
     fail("POST_WRITE_VERIFICATION_FAILED", "Catalog was written but post-write verification failed.");
