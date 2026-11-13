@@ -8,7 +8,7 @@ const loadBrowserModule = async (path) => {
   return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 };
 
-const [{ CatalogLoadError, createCatalogClient, isPublicProduct }, currency] = await Promise.all([
+const [{ CatalogLoadError, createCatalogClient, isPublicProduct, plainTextDescription }, currency] = await Promise.all([
   loadBrowserModule("../frontend/storefront/assets/js/catalog.js"),
   loadBrowserModule("../frontend/storefront/assets/js/currency.js")
 ]);
@@ -50,6 +50,15 @@ test("public catalog validates Chariow IDs, real prices, currencies, and safe im
   assert.equal(isPublicProduct(product({ currency: "GHS" })), true);
   assert.equal(isPublicProduct(product({ image: "http://cdn.example/image.jpg" })), false);
   assert.equal(isPublicProduct(product({ image: "https://cdn.example/image.jpg" })), true);
+});
+
+test("Chariow HTML descriptions become readable text without executable markup", () => {
+  assert.equal(
+    plainTextDescription(
+      "<p><strong>Créer</strong> vite &amp; bien.</p><ul><li>Préparer</li><li>Tester</li></ul><script>alert(1)</script>"
+    ),
+    "Créer vite & bien.\nPréparer\nTester"
+  );
 });
 
 test("catalog loading uses the public endpoint and shares one in-flight request", async () => {
@@ -150,6 +159,7 @@ test("storefront checkout sends the Chariow ID and omits client-controlled amoun
   ].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
 
   assert.match(app, /createCatalogClient\(\)/);
+  assert.match(app, /plainTextDescription/);
   assert.doesNotMatch(app, /from "\.\/products\.js"/);
   assert.doesNotMatch(app, /convertPriceBetweenCurrencies/);
   assert.match(app, /catalogProducts\.find\(\(product\) => product\.id === id\)/);

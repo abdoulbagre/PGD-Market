@@ -21,6 +21,25 @@ export class CatalogLoadError extends Error {
 const isRecord = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
+export function plainTextDescription(value) {
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|li|div|h[1-6]|blockquote)\s*>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 const isFrenchText = (value) =>
   typeof value === "string" ||
   (isRecord(value) &&

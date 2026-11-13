@@ -1,4 +1,4 @@
-import { createCatalogClient } from "./catalog.js";
+import { createCatalogClient, plainTextDescription } from "./catalog.js";
 import { initFrench, t } from "./french.js";
 import {
   formatDisplayPrice,
@@ -14,7 +14,7 @@ const productText = (product, field) => typeof product[field] === "string"
   ? product[field]
   : product[field].fr;
 const productDescription = (product) =>
-  escapeHtml(productText(product, "description")).replace(/&lt;br\s*\/?&gt;/gi, "<br>");
+  escapeHtml(plainTextDescription(productText(product, "description"))).replace(/\n/g, "<br>");
 const productImage = (product) =>
   new URL(product.image, new URL("../../", import.meta.url)).href;
 const cartKey = "pgd-cart";
@@ -290,10 +290,8 @@ function productCard(product, index = 0) {
   const productUrl = `produit.html?id=${encodeURIComponent(product.id)}`;
   const name = productText(product, "name");
   const image = `<img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(name)}" loading="lazy" decoding="async" width="720" height="720">`;
-  const description = productText(product, "description")
-    .replace(/<br\s*\/?>/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const description = plainTextDescription(productText(product, "description"))
+    .replace(/\s+/g, " ");
   const excerpt = description.length > 154
     ? `${description.slice(0, 151).trimEnd()}…`
     : description;
