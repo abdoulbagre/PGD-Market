@@ -1,16 +1,23 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-const uiSource = await readFile(new URL("../public/assets/js/admin-ui.js", import.meta.url), "utf8");
-const { AdminCatalogError, createAdminCatalogController } = await import(
+const uiSource = await readFile(new URL("../frontend/admin/assets/js/admin-ui.js", import.meta.url), "utf8");
+const {
+  AdminCatalogError,
+  createAdminCatalogController,
+  createAdminSessionLifecycle,
+  getProductActions,
+  getProductStatusTransition,
+  summarizeChariowAnalytics
+} = await import(
   `data:text/javascript;base64,${Buffer.from(uiSource).toString("base64")}`
 );
 
 test("catalog management reuses the existing administrator authentication flow", async () => {
   const [html, authScript, catalogScript] = await Promise.all([
-    readFile(new URL("../public/admin.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/assets/js/admin.js", import.meta.url), "utf8"),
-    readFile(new URL("../public/assets/js/admin-ui.js", import.meta.url), "utf8")
+    readFile(new URL("../frontend/admin/admin.html", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/admin/assets/js/admin.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/admin/assets/js/admin-ui.js", import.meta.url), "utf8")
   ]);
   assert.match(html, /id="login-form"/);
   assert.match(html, /data-admin-app hidden/);
@@ -21,17 +28,114 @@ test("catalog management reuses the existing administrator authentication flow",
   assert.doesNotMatch(catalogScript, /const authEndpoint/);
 });
 
-test("catalog initialization is explicit, confirmed, and only available in the admin app", async () => {
+test("the authenticated Admin opens the Chariow dashboard and analytics views", async () => {
   const [html, uiScript] = await Promise.all([
-    readFile(new URL("../public/admin.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/assets/js/admin-ui.js", import.meta.url), "utf8")
+    readFile(new URL("../frontend/admin/admin.html", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/admin/assets/js/admin-ui.js", import.meta.url), "utf8")
+  ]);
+  assert.match(html, /data-admin-view="chariow" aria-current="page"/);
+  assert.doesNotMatch(html, /data-admin-view="products"/);
+  assert.match(html, /data-chariow-tab="overview"/);
+  assert.match(html, /data-chariow-tab="products"/);
+  assert.match(html, /data-chariow-tab="sales"/);
+  assert.match(html, /data-chariow-analytics-period/);
+  assert.match(html, /data-chariow-sales-chart/);
+  assert.match(html, /data-chariow-product-breakdown/);
+  assert.match(uiScript, /if \(loadData && name === "chariow"\) chariowController\.activate\(\)/);
+  assert.match(uiScript, /credentials: "same-origin"/);
+  assert.match(uiScript, /cache: "no-store"/);
+});
+
+test("Chariow analytics deduplicate sales and keep revenue separated by currency", () => {
+  const summary = summarizeChariowAnalytics({
+    now: new Date("2025-01-08T12:00:00.000Z"),
+    period: "last7days",
+    products: [
+      { id: "prd_a", status: "published" },
+      { id: "prd_b", status: "draft" }
+    ],
+    sales: [
+      {
+        id: "sal_a",
+        status: "completed",
+        created_at: "2025-01-08T09:00:00.000Z",
+        product: { id: "prd_a", name: "Guide A" },
+        payment: {
+          status: "success",
+          amount: { value: 100, currency: "XOF" }
+        }
+      },
+      {
+        id: "sal_a",
+        status: "settled",
+        created_at: "2025-01-08T09:00:00.000Z",
+        product: { id: "prd_a", name: "Guide A" },
+        payment: {
+          status: "success",
+          amount: { value: 100, currency: "XOF" }
+        }
+      },
+      {
+        id: "sal_b",
+        status: "settled",
+        created_at: "2025-01-07T09:00:00.000Z",
+        product: { id: "prd_b", name: "Guide B" },
+        payment: {
+          status: "success",
+          amount: { value: 12.5, currency: "EUR" }
+        }
+      }
+    ]
+  });
+
+  assert.equal(summary.totalProducts, 2);
+  assert.equal(summary.publishedProducts, 1);
+  assert.equal(summary.salesCount, 2);
+  assert.deepEqual(summary.revenueByCurrency, [
+    { currency: "EUR", amount: 12.5 },
+    { currency: "XOF", amount: 100 }
+  ]);
+  assert.equal(summary.salesByBucket.find((bucket) => bucket.key === "2025-01-08").count, 1);
+  assert.deepEqual(summary.topProducts.map(({ id, count }) => ({ id, count })), [
+    { id: "prd_a", count: 1 },
+    { id: "prd_b", count: 1 }
+  ]);
+});
+
+test("catalog initialization uses the accessible confirmation dialog", async () => {
+  const [html, uiScript] = await Promise.all([
+    readFile(new URL("../frontend/admin/admin.html", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/admin/assets/js/admin-ui.js", import.meta.url), "utf8")
   ]);
   assert.match(html, /data-admin-app hidden/);
   assert.match(html, /data-catalog-initialize[^>]*>Initialiser le catalogue</);
   assert.match(uiScript, /initializeCatalogButton\?\.addEventListener\("click"/);
-  assert.match(uiScript, /window\.confirm\(/);
+  assert.match(uiScript, /title: "Initialiser le catalogue central \?"/);
+  assert.match(uiScript, /const \{ confirmed \} = await showConfirmation/);
   assert.match(uiScript, /controller\.initializeCatalog\(\)/);
   assert.doesNotMatch(uiScript, /x-catalog-initialization-secret|CATALOG_INITIALIZATION_SECRET/i);
+});
+
+test("authentication and product forms provide inline validation targets", async () => {
+  const [html, authScript, uiScript] = await Promise.all([
+    readFile(new URL("../frontend/admin/admin.html", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/admin/assets/js/admin.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/admin/assets/js/admin-ui.js", import.meta.url), "utf8")
+  ]);
+  assert.match(html, /id="email-error" class="field-error" data-auth-error-for="email"/);
+  assert.match(html, /id="product-price-error" data-product-error="price"/);
+  assert.match(authScript, /function validateAuthForm/);
+  assert.match(uiScript, /function showProductFieldError/);
+  assert.match(uiScript, /field\.focus\(\)/);
+});
+
+test("delete confirmation keeps the exact product-token contract", async () => {
+  const uiScript = await readFile(
+    new URL("../frontend/admin/assets/js/admin-ui.js", import.meta.url),
+    "utf8"
+  );
+  assert.match(uiScript, /const expectedText = `DELETE PRODUCT \$\{product\.id\}`/);
+  assert.match(uiScript, /body: \{ confirmation \}/);
 });
 
 test("catalog initialization sends only a same-origin POST and handles both successful outcomes", async () => {
@@ -69,8 +173,8 @@ test("catalog initialization reports server refusals as errors", async () => {
 
 const product = (overrides = {}) => ({
   id: "550e8400-e29b-41d4-a716-446655440000",
-  name: { fr: "Produit FR", en: "Product EN" },
-  description: { fr: "Description FR", en: "Description EN" },
+  name: "Produit FR",
+  description: "Description FR",
   price: 4200,
   currency: "XOF",
   image: "assets/images/product.jpg",
@@ -80,6 +184,133 @@ const product = (overrides = {}) => ({
   published: true,
   archivedAt: null,
   ...overrides
+});
+
+test("admin product editor contains only French product fields grouped by purpose", async () => {
+  const [html, uiScript] = await Promise.all([
+    readFile(new URL("../frontend/admin/admin.html", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/admin/assets/js/admin-ui.js", import.meta.url), "utf8")
+  ]);
+  assert.match(html, /<legend>Informations du produit<\/legend>/);
+  assert.match(html, /<legend>Commercial<\/legend>/);
+  assert.match(html, /name="name"/);
+  assert.match(html, /name="description"/);
+  assert.doesNotMatch(html, /name="(?:name-en|description-en|name-fr|description-fr)"/);
+  assert.doesNotMatch(uiScript, /name-en|description-en|name-fr|description-fr|en\.json/);
+  assert.match(uiScript, /name,\s+description: productDescription/);
+});
+
+test("product actions only offer valid publication and availability transitions", () => {
+  const publishedAvailable = product({ published: true, available: true });
+  const publishedUnavailable = product({ published: true, available: false });
+  const unpublishedUnavailable = product({ published: false, available: false });
+
+  assert.deepEqual(getProductStatusTransition(publishedAvailable, "publication"), {
+    published: false,
+    available: false
+  });
+  assert.deepEqual(getProductStatusTransition(publishedAvailable, "availability"), {
+    published: true,
+    available: false
+  });
+  assert.deepEqual(getProductStatusTransition(publishedUnavailable, "publication"), {
+    published: false,
+    available: false
+  });
+  assert.deepEqual(getProductStatusTransition(publishedUnavailable, "availability"), {
+    published: true,
+    available: true
+  });
+  assert.deepEqual(getProductStatusTransition(unpublishedUnavailable, "publication"), {
+    published: true,
+    available: false
+  });
+  assert.equal(getProductStatusTransition(unpublishedUnavailable, "availability"), null);
+  assert.deepEqual(getProductActions(unpublishedUnavailable), [
+    "edit", "publication", "archive"
+  ]);
+  assert.deepEqual(getProductActions(publishedAvailable), [
+    "edit", "publication", "availability", "archive"
+  ]);
+  assert.deepEqual(getProductActions(publishedUnavailable, true), ["restore", "delete"]);
+});
+
+test("Chariow product ID is explained and read-only only while editing", async () => {
+  const [html, uiScript] = await Promise.all([
+    readFile(new URL("../frontend/admin/admin.html", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/admin/assets/js/admin-ui.js", import.meta.url), "utf8")
+  ]);
+  assert.match(html, /utilisé pour le paiement Chariow/);
+  assert.match(html, /ne peut pas être modifié après la création/);
+  assert.match(uiScript, /chariow-product-id"\)\.readOnly = true/);
+  assert.match(uiScript, /chariow-product-id"\)\.readOnly = false/);
+  assert.doesNotMatch(uiScript, /chariow-product-id"\)\.disabled = true/);
+});
+
+test("a 401 clears the previous catalog and a new admin session loads it again", async () => {
+  let callCount = 0;
+  let cachedProducts = [product({ name: "Ancien" })];
+  const controller = createAdminCatalogController(async () => {
+    callCount += 1;
+    if (callCount === 1) return response(401, { error: "UNAUTHORIZED" });
+    return catalogResponse([product({ name: "Actuel" })], '"version-2"');
+  });
+  let lifecycle;
+  lifecycle = createAdminSessionLifecycle({
+    onExpire() {
+      controller.invalidate();
+      cachedProducts = [];
+    },
+    async onAuthenticate(session) {
+      try {
+        const result = await controller.load();
+        if (lifecycle.isCurrent(session)) cachedProducts = result.products;
+        return result;
+      } catch (error) {
+        if (error.status === 401) lifecycle.change(false);
+        throw error;
+      }
+    }
+  });
+
+  const expiredSession = lifecycle.change(true);
+  await assert.rejects(expiredSession.refresh, { status: 401 });
+  assert.deepEqual(cachedProducts, []);
+  assert.equal(controller.etag, "");
+
+  const reconnectedSession = lifecycle.change(true);
+  await reconnectedSession.refresh;
+  assert.equal(callCount, 2);
+  assert.equal(cachedProducts[0].name, "Actuel");
+});
+
+test("a catalog response from a previous session cannot replace the reconnected catalog", async () => {
+  let resolvePreviousLoad;
+  let cachedProducts = [];
+  let lifecycle;
+  lifecycle = createAdminSessionLifecycle({
+    onExpire() {
+      cachedProducts = [];
+    },
+    onAuthenticate(session) {
+      const loaded = session === 1
+        ? new Promise((resolve) => { resolvePreviousLoad = resolve; })
+        : Promise.resolve([product({ name: "Actuel" })]);
+      return loaded.then((products) => {
+        if (lifecycle.isCurrent(session)) cachedProducts = products;
+        return products;
+      });
+    }
+  });
+
+  const previousSession = lifecycle.change(true);
+  lifecycle.change(false);
+  const reconnectedSession = lifecycle.change(true);
+  await reconnectedSession.refresh;
+  resolvePreviousLoad([product({ name: "Ancien" })]);
+  await previousSession.refresh;
+
+  assert.equal(cachedProducts[0].name, "Actuel");
 });
 
 const response = (status, body, etag = '"version-1"') =>
@@ -151,7 +382,7 @@ test("archive and restore mutations preserve If-Match and update the catalog ver
 
 test("a 412 blocks repeat submissions until the latest product and ETag are reloaded", async () => {
   let callCount = 0;
-  const latest = product({ name: { fr: "Version serveur", en: "Server version" } });
+  const latest = product({ name: "Version serveur" });
   const controller = createAdminCatalogController(async (_url, options) => {
     callCount += 1;
     if (callCount === 1) return catalogResponse([product()], '"version-1"');
@@ -172,7 +403,7 @@ test("a 412 blocks repeat submissions until the latest product and ETag are relo
   assert.equal(callCount, 2);
 
   const reloaded = await controller.reloadEdit(product().id);
-  assert.equal(reloaded.product.name.fr, "Version serveur");
+  assert.equal(reloaded.product.name, "Version serveur");
   assert.equal(reloaded.etag, '"version-2"');
   await controller.mutate({
     method: "PUT",

@@ -5,9 +5,9 @@ import {
   AuthAccessError,
   createAuthHandler,
   requireAdmin
-} from "../netlify/functions/_auth.mjs";
-import authHandler from "../netlify/functions/auth.mjs";
-import privateAuthHandler from "../netlify/functions/_auth.mjs";
+} from "../backend/functions/_auth.mjs";
+import authHandler from "../backend/functions/auth.mjs";
+import privateAuthHandler from "../backend/functions/_auth.mjs";
 
 const adminUser = { id: "user-admin", roles: ["admin"] };
 const regularUser = { id: "user-regular", roles: ["member"] };

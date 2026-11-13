@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Administration | PGD Market</title>
+  <link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <section class="admin-auth-view" data-admin-auth>
+      <header class="admin-header">
+        <a class="admin-brand" href="index.html" aria-label="PGD Market, accueil">
+          <span class="admin-brand-pgd">PGD</span>
+          <span class="admin-brand-market">MARKET</span>
+        </a>
+        <p>Espace administration</p>
+      </header>
+
+      <section class="auth-panel" aria-labelledby="auth-title">
+        <h1 id="auth-title">Connexion administrateur</h1>
+        <p id="auth-description" class="auth-description">Connectez-vous avec votre compte administrateur invité.</p>
+
+        <form id="login-form" class="auth-form" novalidate>
+          <div class="auth-field">
+            <label for="email">Adresse e-mail</label>
+            <input id="email" name="email" type="email" autocomplete="username" required aria-describedby="email-error">
+            <p id="email-error" class="field-error" data-auth-error-for="email" role="alert" hidden></p>
+          </div>
+          <div class="auth-field">
+            <label for="password">Mot de passe</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required aria-describedby="password-error">
+            <p id="password-error" class="field-error" data-auth-error-for="password" role="alert" hidden></p>
+          </div>
+          <button class="button button-primary" type="submit">Se connecter</button>
+          <button id="forgot-password" class="text-button" type="button">Mot de passe oublié</button>
+        </form>
+
+        <form id="recovery-request-form" class="auth-form" hidden novalidate>
+          <div class="auth-field">
+            <label for="recovery-email">Adresse e-mail du compte</label>
+            <input id="recovery-email" name="email" type="email" autocomplete="email" required aria-describedby="recovery-email-error">
+            <p id="recovery-email-error" class="field-error" data-auth-error-for="email" role="alert" hidden></p>
+          </div>
+          <button class="button button-primary" type="submit">Envoyer le lien de récupération</button>
+          <button class="text-button" type="button" data-show-login>Retour à la connexion</button>
+        </form>
+
+        <form id="new-password-form" class="auth-form" hidden novalidate>
+          <div class="auth-field">
+            <label for="new-password">Nouveau mot de passe</label>
+            <input id="new-password" name="password" type="password" autocomplete="new-password" minlength="8" required aria-describedby="new-password-error">
+            <p id="new-password-error" class="field-error" data-auth-error-for="password" role="alert" hidden></p>
+          </div>
+          <div class="auth-field">
+            <label for="confirm-password">Confirmer le mot de passe</label>
+            <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" minlength="8" required aria-describedby="confirm-password-error">
+            <p id="confirm-password-error" class="field-error" data-auth-error-for="confirm-password" role="alert" hidden></p>
+          </div>
+          <button class="button button-primary" type="submit">Enregistrer le mot de passe</button>
+        </form>
+
+        <section id="session-panel" class="session-panel" hidden aria-live="polite">
+          <p id="session-message"></p>
+          <button id="logout-button" class="button button-outline" type="button">Se déconnecter</button>
+        </section>
+        <p id="auth-message" class="auth-message" role="status" aria-live="polite"></p>
+      </section>
+
+      <footer class="admin-footer">Accès réservé aux comptes administrateur invités.</footer>
+    </section>
+
+    <section class="admin-workspace" data-admin-app hidden>
+      <button class="admin-sidebar-scrim" data-sidebar-close type="button" aria-label="Fermer la navigation" hidden></button>
+      <aside class="admin-sidebar" id="admin-sidebar" aria-label="Navigation de l’administration">
+        <div class="admin-sidebar-brand">
+          <a class="admin-brand" href="index.html" aria-label="PGD Market, accueil">
+            <span class="admin-brand-pgd">PGD</span>
+            <span class="admin-brand-market">MARKET</span>
+          </a>
+          <p>Administration</p>
+        </div>
+        <nav class="admin-sidebar-nav" aria-label="Sections">
+          <button class="admin-sidebar-link is-active" type="button" data-admin-view="chariow" aria-current="page">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9.5h17l-1.6 10H5.1z"/><path d="M8 9.5l4-6 4 6M8 14v2M12 14v2M16 14v2"/></svg>
+            <span>Tableau de bord</span>
+          </button>
+        </nav>
+        <div class="admin-sidebar-footer">
+          <p class="admin-role"><span aria-hidden="true"></span> Session administrateur</p>
+          <button class="button button-sidebar-logout" data-logout type="button">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5H5v14h5"/><path d="M14 8l4 4-4 4M8 12h10"/></svg>
+            <span>Se déconnecter</span>
+          </button>
+        </div>
+      </aside>
+
+      <div class="admin-main">
+        <header class="admin-topbar">
+          <div class="admin-topbar-leading">
+            <button class="admin-nav-toggle" data-sidebar-toggle type="button" aria-expanded="false" aria-controls="admin-sidebar" aria-label="Ouvrir la navigation">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div>
+              <p class="admin-breadcrumb">PGD Market <span aria-hidden="true">/</span> Administration</p>
+              <h1>Espace d’administration</h1>
+            </div>
+          </div>
+          <p class="admin-topbar-status"><span aria-hidden="true"></span> Session administrateur active</p>
+        </header>
+
+        <div class="admin-workspace-content">
+          <div class="admin-overview" data-admin-overview-panel>
+            <div class="admin-workspace-heading">
+              <div>
+                <h2 data-overview-title>Tableau de bord Chariow</h2>
+                <p data-overview-description>Consultez les produits, ventes et montants réellement payés dans Chariow.</p>
+              </div>
+            </div>
+
+            <section class="admin-stat-grid" data-catalog-overview-stats aria-label="Indicateurs du catalogue">
+              <article class="admin-stat-card">
+                <span class="admin-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
+                </span>
+                <p>Produits</p>
+                <strong data-stat-total>0</strong>
+                <span>au catalogue</span>
+              </article>
+              <article class="admin-stat-card">
+                <span class="admin-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+                </span>
+                <p>Publiés</p>
+                <strong data-stat-published>0</strong>
+                <span>visibles dans la boutique</span>
+              </article>
+              <article class="admin-stat-card">
+                <span class="admin-stat-icon admin-stat-gold" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M8.5 12l2.2 2.2 4.8-4.8"/></svg>
+                </span>
+                <p>Disponibles</p>
+                <strong data-stat-available>0</strong>
+                <span>à la vente</span>
+              </article>
+              <article class="admin-stat-card">
+                <span class="admin-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16v12H4z"/><path d="M3 4h18v4H3zM9 13h6"/></svg>
+                </span>
+                <p>Archives</p>
+                <strong data-stat-archived>0</strong>
+                <span>mis de côté</span>
+              </article>
+            </section>
+          </div>
+
+          <p class="admin-catalog-message" data-admin-message hidden role="status" aria-live="polite"></p>
+
+          <section class="admin-panel" data-admin-screen="products" aria-labelledby="products-heading">
+            <div class="admin-panel-heading admin-products-heading">
+              <div>
+                <h2 id="products-heading" tabindex="-1">Produits</h2>
+                <p>Les modifications sont enregistrées dans le catalogue central.</p>
+              </div>
+              <div class="admin-header-actions">
+                <button class="button button-outline" type="button" data-catalog-initialize>Initialiser le catalogue</button>
+                <button class="button button-primary" type="button" data-product-create>Ajouter un produit</button>
+              </div>
+            </div>
+            <div class="admin-list-toolbar">
+              <label class="admin-search">
+                <span class="sr-only">Rechercher un produit</span>
+                <svg class="admin-search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4 4"/></svg>
+                <input type="search" data-product-search placeholder="Rechercher un produit…" autocomplete="off">
+              </label>
+              <div class="admin-filter-group" role="group" aria-label="Filtrer les produits">
+                <button class="admin-filter is-active" type="button" data-product-filter="all" aria-pressed="true">Tous</button>
+                <button class="admin-filter" type="button" data-product-filter="published" aria-pressed="false">Publiés</button>
+                <button class="admin-filter" type="button" data-product-filter="available" aria-pressed="false">Disponibles</button>
+              </div>
+              <button class="button button-outline admin-open-archives" type="button" data-admin-archives>Voir les archives</button>
+              <button class="button button-outline admin-refresh" type="button" data-products-refresh aria-label="Actualiser le catalogue">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 0 0-12.4-4.5L5 9M4 17v-5h5"/><path d="M5 12a7 7 0 0 0 12.4 4.5L19 15"/></svg>
+                <span>Actualiser</span>
+              </button>
+            </div>
+            <p class="admin-list-status" data-products-status role="status" aria-live="polite"></p>
+            <div class="admin-product-table" role="table" aria-label="Produits du catalogue">
+              <div class="admin-product-table-head" role="row">
+                <span id="products-col-product" role="columnheader">Produit</span>
+                <span id="products-col-price" role="columnheader">Prix</span>
+                <span id="products-col-state" role="columnheader">État</span>
+                <span id="products-col-actions" role="columnheader">Actions</span>
+              </div>
+              <div class="admin-product-list" data-products-list role="rowgroup" aria-busy="false"></div>
+              <p class="admin-empty-state" data-products-empty role="status" hidden></p>
+            </div>
+          </section>
+
+          <section class="admin-panel" data-admin-screen="archives" hidden aria-labelledby="archives-heading">
+            <div class="admin-panel-heading">
+              <div>
+                <h2 id="archives-heading" tabindex="-1">Archives</h2>
+                <p>Les produits archivés peuvent être restaurés ou supprimés explicitement.</p>
+              </div>
+              <button class="button button-outline" type="button" data-archives-refresh>
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 0 0-12.4-4.5L5 9M4 17v-5h5"/><path d="M5 12a7 7 0 0 0 12.4 4.5L19 15"/></svg>
+                <span>Actualiser</span>
+              </button>
+            </div>
+            <p class="admin-list-status" data-archives-status role="status" aria-live="polite"></p>
+            <div class="admin-product-table" role="table" aria-label="Produits archivés">
+              <div class="admin-product-table-head" role="row">
+                <span id="archives-col-product" role="columnheader">Produit</span>
+                <span id="archives-col-price" role="columnheader">Prix</span>
+                <span id="archives-col-state" role="columnheader">État</span>
+                <span id="archives-col-actions" role="columnheader">Actions</span>
+              </div>
+              <div class="admin-product-list" data-archives-list role="rowgroup" aria-busy="false"></div>
+              <p class="admin-empty-state" data-archives-empty role="status" hidden></p>
+            </div>
+          </section>
+
+          <section class="admin-panel chariow-panel" data-admin-screen="chariow" hidden aria-labelledby="chariow-heading">
+            <div class="admin-panel-heading">
+              <div>
+                <h2 id="chariow-heading" tabindex="-1">Chariow</h2>
+                <p>Consultation en lecture seule des données de votre boutique Chariow.</p>
+              </div>
+              <button class="button button-outline" type="button" data-chariow-refresh>
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 0 0-12.4-4.5L5 9M4 17v-5h5"/><path d="M5 12a7 7 0 0 0 12.4 4.5L19 15"/></svg>
+                <span>Actualiser</span>
+              </button>
+            </div>
+
+            <div class="chariow-tabs" role="tablist" aria-label="Sections Chariow">
+              <button class="chariow-tab is-active" id="chariow-tab-overview" type="button" role="tab" aria-selected="true" aria-controls="chariow-overview-panel" data-chariow-tab="overview">Vue d’ensemble</button>
+              <button class="chariow-tab" id="chariow-tab-products" type="button" role="tab" aria-selected="false" aria-controls="chariow-products-panel" tabindex="-1" data-chariow-tab="products">Produits</button>
+              <button class="chariow-tab" id="chariow-tab-sales" type="button" role="tab" aria-selected="false" aria-controls="chariow-sales-panel" tabindex="-1" data-chariow-tab="sales">Ventes</button>
+            </div>
+
+            <section class="chariow-subpanel" id="chariow-overview-panel" role="tabpanel" aria-labelledby="chariow-tab-overview" data-chariow-panel="overview" tabindex="0">
+              <p class="admin-list-status" data-chariow-overview-status role="status" aria-live="polite"></p>
+              <div class="chariow-store-card" data-chariow-store hidden>
+                <div class="chariow-store-identity">
+                  <img class="chariow-store-logo" data-chariow-logo alt="" hidden>
+                  <div>
+                    <p class="chariow-eyebrow">Boutique Chariow</p>
+                    <h3 data-chariow-name></h3>
+                    <a data-chariow-url target="_blank" rel="noopener noreferrer"></a>
+                  </div>
+                </div>
+                <span class="admin-state-badge" data-chariow-store-status></span>
+                <p class="chariow-store-description" data-chariow-description hidden></p>
+              </div>
+              <section class="chariow-stats" data-chariow-stats hidden aria-label="Statistiques fournies par Chariow">
+                <article class="chariow-stat-card" data-chariow-stat-customers hidden>
+                  <span>Clients au total</span>
+                  <strong data-chariow-total-customers></strong>
+                </article>
+                <article class="chariow-stat-card" data-chariow-stat-ratings hidden>
+                  <span>Évaluations</span>
+                  <strong data-chariow-total-ratings></strong>
+                  <small data-chariow-rating-positive></small>
+                </article>
+              </section>
+              <section class="chariow-analytics" aria-labelledby="chariow-analytics-heading">
+                <div class="chariow-analytics-heading">
+                  <div>
+                    <h3 id="chariow-analytics-heading">Performance commerciale</h3>
+                    <p>Les ventes réussies et montants proviennent des données Chariow.</p>
+                  </div>
+                  <label class="chariow-period-control" for="chariow-analytics-period">
+                    <span>Période</span>
+                    <select id="chariow-analytics-period" data-chariow-analytics-period>
+                      <option value="last7days">7 derniers jours</option>
+                      <option value="last30days" selected>30 derniers jours</option>
+                      <option value="thisMonth">Ce mois-ci</option>
+                      <option value="lastMonth">Mois dernier</option>
+                      <option value="thisYear">Cette année</option>
+                    </select>
+                  </label>
+                </div>
+                <p class="admin-list-status" data-chariow-analytics-status role="status" aria-live="polite"></p>
+                <div class="chariow-analytics-results" data-chariow-analytics-results hidden>
+                  <dl class="chariow-analytics-summary" aria-label="Résumé de la période sélectionnée">
+                    <div><dt>Produits au total</dt><dd data-chariow-total-products>—</dd></div>
+                    <div><dt>Produits publiés</dt><dd data-chariow-published-products>—</dd></div>
+                    <div><dt>Ventes réussies</dt><dd data-chariow-sales-count>—</dd></div>
+                    <div>
+                      <dt>Montants payés</dt>
+                      <dd><ul class="chariow-revenue-list" data-chariow-revenue></ul></dd>
+                    </div>
+                  </dl>
+                  <div class="chariow-analytics-details">
+                    <section aria-labelledby="chariow-sales-trend-heading">
+                      <h4 id="chariow-sales-trend-heading">Évolution des ventes</h4>
+                      <div class="chariow-sales-chart" data-chariow-sales-chart role="list" aria-label="Nombre de ventes par jour"></div>
+                      <p class="admin-empty-state" data-chariow-sales-chart-empty hidden></p>
+                    </section>
+                    <section aria-labelledby="chariow-product-breakdown-heading">
+                      <h4 id="chariow-product-breakdown-heading">Ventes par produit</h4>
+                      <ol class="chariow-product-breakdown" data-chariow-product-breakdown></ol>
+                      <p class="admin-empty-state" data-chariow-product-breakdown-empty hidden></p>
+                    </section>
+                  </div>
+                </div>
+              </section>
+              <p class="chariow-cache-note">Certaines statistiques Chariow peuvent être mises en cache pendant une heure.</p>
+              <p class="chariow-updated">Dernière actualisation : <time data-chariow-updated>Pas encore actualisé</time></p>
+            </section>
+
+            <section class="chariow-subpanel" id="chariow-products-panel" role="tabpanel" aria-labelledby="chariow-tab-products" data-chariow-panel="products" tabindex="0" hidden>
+              <div class="admin-panel-heading chariow-products-heading">
+                <div>
+                  <h3>Produits Chariow</h3>
+                  <p>Prix et informations affichés tels que renvoyés par l’API Chariow.</p>
+                </div>
+              </div>
+              <div class="admin-list-toolbar chariow-toolbar">
+                <label class="admin-search">
+                  <span class="sr-only">Rechercher un produit Chariow</span>
+                  <svg class="admin-search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4 4"/></svg>
+                  <input type="search" data-chariow-search placeholder="Rechercher par nom, ID ou type…" autocomplete="off">
+                </label>
+              </div>
+              <p class="admin-list-status" data-chariow-products-status role="status" aria-live="polite"></p>
+              <div class="chariow-product-list" data-chariow-products role="list" aria-busy="false"></div>
+              <p class="admin-empty-state" data-chariow-products-empty role="status" hidden></p>
+              <nav class="chariow-pagination" aria-label="Pagination des produits Chariow">
+                <button class="button button-outline" type="button" data-chariow-previous disabled>Page précédente</button>
+                <span data-chariow-page-status aria-live="polite"></span>
+                <button class="button button-outline" type="button" data-chariow-next disabled>Page suivante</button>
+              </nav>
+            </section>
+
+            <section class="chariow-subpanel" id="chariow-sales-panel" role="tabpanel" aria-labelledby="chariow-tab-sales" data-chariow-panel="sales" tabindex="0" hidden>
+              <div class="admin-panel-heading chariow-products-heading">
+                <div>
+                  <h3>Ventes Chariow</h3>
+                  <p>Consultez les ventes retournées par l’API Chariow. Aucune donnée n’est stockée localement.</p>
+                </div>
+              </div>
+              <div class="admin-list-toolbar chariow-toolbar">
+                <label class="admin-search">
+                  <span class="sr-only">Rechercher une vente Chariow</span>
+                  <svg class="admin-search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4 4"/></svg>
+                  <input type="search" data-chariow-sales-search maxlength="255" placeholder="Rechercher par identifiant de vente ou transaction…" autocomplete="off">
+                </label>
+              </div>
+              <p class="admin-list-status" data-chariow-sales-status role="status" aria-live="polite"></p>
+              <div class="chariow-sale-list" data-chariow-sales role="list" aria-busy="false"></div>
+              <p class="admin-empty-state" data-chariow-sales-empty role="status" hidden></p>
+              <nav class="chariow-pagination" aria-label="Pagination des ventes Chariow">
+                <button class="button button-outline" type="button" data-chariow-sales-previous disabled>Page précédente</button>
+                <span data-chariow-sales-page-status aria-live="polite"></span>
+                <button class="button button-outline" type="button" data-chariow-sales-next disabled>Page suivante</button>
+              </nav>
+            </section>
+
+            <dialog class="admin-dialog chariow-details-dialog" data-chariow-dialog aria-labelledby="chariow-details-title">
+              <div class="admin-dialog-content">
+                <div class="admin-dialog-heading">
+                  <div><h2 id="chariow-details-title" data-chariow-dialog-title>Détails du produit</h2></div>
+                  <button class="admin-dialog-close" data-chariow-dialog-close type="button" aria-label="Fermer les détails">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
+                  </button>
+                </div>
+                <div data-chariow-detail-body aria-live="polite"></div>
+                <div class="admin-dialog-actions">
+                  <button class="button button-outline" data-chariow-dialog-close type="button">Fermer</button>
+                </div>
+              </div>
+            </dialog>
+          </section>
+
+          <section class="admin-panel admin-product-editor" data-product-editor hidden aria-labelledby="product-editor-title">
+            <div class="admin-panel-heading">
+              <div>
+                <h2 id="product-editor-title" tabindex="-1">Ajouter un produit</h2>
+                <p data-editor-description>Renseignez les informations du produit.</p>
+              </div>
+            </div>
+            <form data-product-form novalidate>
+              <div class="admin-editor-sections">
+                <fieldset class="admin-editor-section">
+                  <legend>Informations du produit</legend>
+                  <div class="admin-editor-grid">
+                    <div class="admin-field">
+                      <label for="product-name">Nom</label>
+                      <input id="product-name" name="name" maxlength="200" required aria-describedby="product-name-error">
+                      <p class="field-error" id="product-name-error" data-product-error="name" role="alert" hidden></p>
+                    </div>
+                    <div class="admin-field">
+                      <label for="product-image">Image (chemin sous assets/)</label>
+                      <input id="product-image" name="image" maxlength="512" placeholder="assets/images/produit.jpg" required aria-describedby="product-image-error">
+                      <p class="field-error" id="product-image-error" data-product-error="image" role="alert" hidden></p>
+                    </div>
+                    <div class="admin-field">
+                      <label for="product-category">Catégorie</label>
+                      <input id="product-category" name="category" maxlength="120">
+                    </div>
+                    <div class="admin-field admin-editor-wide">
+                      <label for="product-description">Description</label>
+                      <textarea id="product-description" name="description" maxlength="20000" rows="4" required aria-describedby="product-description-error"></textarea>
+                      <p class="field-error" id="product-description-error" data-product-error="description" role="alert" hidden></p>
+                    </div>
+                  </div>
+                </fieldset>
+                <fieldset class="admin-editor-section">
+                  <legend>Commercial</legend>
+                  <div class="admin-editor-grid">
+                    <div class="admin-field">
+                      <label for="product-price">Prix</label>
+                      <input id="product-price" name="price" type="number" min="1" step="1" required aria-describedby="product-price-error">
+                      <p class="field-error" id="product-price-error" data-product-error="price" role="alert" hidden></p>
+                    </div>
+                    <div class="admin-field">
+                      <label for="product-currency">Devise</label>
+                      <select id="product-currency" name="currency" required aria-describedby="product-currency-error">
+                        <option value="XOF">XOF</option>
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                      </select>
+                      <p class="field-error" id="product-currency-error" data-product-error="currency" role="alert" hidden></p>
+                    </div>
+                    <div class="admin-field admin-editor-wide">
+                      <label for="chariow-product-id">Identifiant produit Chariow</label>
+                      <input id="chariow-product-id" name="chariow-product-id" pattern="prd_[A-Za-z0-9_\x2d]+" maxlength="128" required aria-describedby="chariow-product-id-help chariow-product-id-error">
+                      <p id="chariow-product-id-help" class="field-help" data-chariow-id-help>Renseigné à la création et utilisé pour le paiement Chariow. Il ne peut pas être modifié après la création.</p>
+                      <p class="field-error" id="chariow-product-id-error" data-product-error="chariow-product-id" role="alert" hidden></p>
+                      <span class="field-lock" data-chariow-lock hidden>Verrouillé après création</span>
+                    </div>
+                    <div class="admin-checkbox-field">
+                      <label class="admin-checkbox" for="product-available">
+                        <input id="product-available" name="available" type="checkbox" aria-describedby="product-available-error">
+                        <span>Disponible à la vente</span>
+                      </label>
+                      <p class="field-error" id="product-available-error" data-product-error="available" role="alert" hidden></p>
+                    </div>
+                    <div class="admin-checkbox-field">
+                      <label class="admin-checkbox" for="product-published">
+                        <input id="product-published" name="published" type="checkbox">
+                        <span>Publié sur le site</span>
+                      </label>
+                    </div>
+                  </div>
+                </fieldset>
+              </div>
+              <p class="admin-form-message" data-form-message hidden role="status" aria-live="polite"></p>
+              <div class="admin-form-actions">
+                <button class="button button-primary" type="submit" data-product-submit>Créer le produit</button>
+                <button class="button button-outline" type="button" data-editor-cancel>Annuler</button>
+                <button class="button button-outline" type="button" data-conflict-reload hidden>Recharger la version serveur</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <dialog class="admin-dialog" data-confirm-dialog aria-labelledby="confirm-title" aria-describedby="confirm-description">
+      <form class="admin-dialog-content" data-confirm-form novalidate>
+        <div class="admin-dialog-heading">
+          <div>
+            <h2 id="confirm-title" data-confirm-title>Confirmer l’action</h2>
+          </div>
+          <button class="admin-dialog-close" data-confirm-cancel type="button" aria-label="Annuler et fermer">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <p id="confirm-description" class="admin-dialog-description" data-confirm-description></p>
+        <div class="admin-field" data-confirm-input-wrap hidden>
+          <label for="confirm-input" data-confirm-input-label>Phrase de confirmation</label>
+          <input id="confirm-input" data-confirm-input autocomplete="off" aria-describedby="confirm-input-error">
+          <p class="field-error" id="confirm-input-error" data-confirm-input-error role="alert" hidden></p>
+        </div>
+        <div class="admin-dialog-actions">
+          <button class="button button-outline" data-confirm-cancel type="button">Annuler</button>
+          <button class="button button-danger" data-confirm-submit type="submit">Confirmer</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+  <script type="module" src="assets/js/admin.js"></script>
+</body>
+</html>

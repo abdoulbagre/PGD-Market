@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import catalogSeed from "../backend/data/catalog-seed.json" with { type: "json" };
 import {
   CATALOG_TARGET,
   CatalogOperatorError,
@@ -10,33 +10,13 @@ import {
 import {
   CatalogStorageError,
   initializeCatalog,
-  initializeCatalogFromLegacy,
+  prepareInitialCatalogFromSeed,
   readCatalog
-} from "../netlify/functions/_catalog.mjs";
+} from "../backend/functions/_catalog.mjs";
 import {
   createCatalogInitializationHandler
-} from "../netlify/functions/initialize-catalog.mjs";
+} from "../backend/functions/initialize-catalog.mjs";
 
-const require = createRequire(import.meta.url);
-const serverProducts = require("../netlify/functions/_products.js").products;
-const publicSource = await readFile(
-  new URL("../public/assets/js/products.js", import.meta.url),
-  "utf8"
-);
-const publicModule = await import(
-  `data:text/javascript;base64,${Buffer.from(publicSource).toString("base64")}`
-);
-const englishLocale = JSON.parse(await readFile(
-  new URL("../public/locales/en.json", import.meta.url),
-  "utf8"
-));
-
-const legacyData = {
-  publicProducts: publicModule.products,
-  serverProducts,
-  englishTranslations: englishLocale.products,
-  referenceCurrency: "XOF"
-};
 const environment = {
   CONTEXT: "production",
   NETLIFY_BLOBS_CONTEXT: Buffer.from(JSON.stringify({
@@ -84,10 +64,10 @@ const createDependencies = (overrides = {}) => {
     store,
     dependencies: {
       verifySite: async () => {},
-      loadLegacyData: async () => legacyData,
+      loadCatalogSeed: async () => catalogSeed,
       readCatalog: () => readCatalog({ store }),
-      initializeCatalogFromLegacy: (data) =>
-        initializeCatalogFromLegacy(data, { store }),
+      initializeCatalog: (catalog) =>
+        initializeCatalog(catalog, { store }),
       prompt: async () => "not confirmed",
       log: () => {},
       ...overrides.dependencies
@@ -147,14 +127,14 @@ const createInitializationFixture = ({
   verifyOrigin = () => {},
   catalogReader = () => readCatalog({ store }),
   initialize = (catalog) => initializeCatalog(catalog, { store }),
-  loadLegacyData: loadData = async () => legacyData
+  loadCatalogSeed: loadSeed = async () => catalogSeed
 } = {}) => {
   const handler = createCatalogInitializationHandler({
     authorizeAdmin,
     verifyOrigin,
     catalogReader,
     initialize,
-    loadLegacyData: loadData,
+    loadCatalogSeed: loadSeed,
     environment
   });
   return { handler, store, context };
@@ -174,7 +154,7 @@ test("existing catalog stops before preparing or writing", async () => {
   const { store, dependencies } = createDependencies({
     dependencies: {
       readCatalog: async () => ({ catalog: {}, etag: "existing" }),
-      loadLegacyData: async () => assert.fail("legacy data should not be loaded")
+      loadCatalogSeed: async () => assert.fail("catalog seed should not be loaded")
     }
   });
   await assert.rejects(
@@ -209,11 +189,11 @@ test("corrupt catalog stops without initializing", async () => {
 test("invalid initial data is rejected before any write", async () => {
   const { store, dependencies } = createDependencies({
     dependencies: {
-      loadLegacyData: async () => ({
-        ...legacyData,
-        serverProducts: legacyData.serverProducts.map((product) =>
+      loadCatalogSeed: async () => ({
+        ...catalogSeed,
+        products: catalogSeed.products.map((product) =>
           product.id === "550e8400-e29b-41d4-a716-446655440000"
-            ? { ...product, prix: 1 }
+            ? { ...product, price: 0 }
             : product
         )
       })
@@ -295,9 +275,9 @@ test("uncertain write is reread once and never retried", async () => {
         return readCatalog({ store });
       },
       prompt: async () => "INITIALISER pgd-market-catalog",
-      initializeCatalogFromLegacy: async (data) => {
+      initializeCatalog: async (catalog) => {
         initializationCalls += 1;
-        await initializeCatalogFromLegacy(data, { store });
+        await initializeCatalog(catalog, { store });
         throw new CatalogStorageError(
           "CATALOG_WRITE_UNCONFIRMED",
           503,
@@ -396,6 +376,17 @@ test("target metadata remains the expected production store and key", () => {
     schemaVersion: 2,
     environment: "production"
   });
+});
+
+test("initializers use the backend seed without importing storefront product data", async () => {
+  const [functionSource, scriptSource] = await Promise.all([
+    readFile(new URL("../backend/functions/initialize-catalog.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/initialize-catalog.mjs", import.meta.url), "utf8")
+  ]);
+  for (const source of [functionSource, scriptSource]) {
+    assert.match(source, /catalog-seed\.json/);
+    assert.doesNotMatch(source, /public\/assets\/js\/products\.js|_products\.js/);
+  }
 });
 
 test("one-off function refuses unauthenticated callers before catalog access", async () => {
@@ -579,7 +570,7 @@ test("production context does not depend on build-only environment context varia
   assert.equal(fixture.store.writes, 0);
 });
 
-test("one-off function initializes only from server-loaded legacy data", async () => {
+test("one-off function initializes only from the backend seed", async () => {
   const fixture = createInitializationFixture();
   const response = await fixture.handler(createInitializationRequest({
     body: JSON.stringify({ products: [{ price: 1, chariowProductId: "browser-value" }] })
@@ -596,9 +587,9 @@ test("one-off function initializes only from server-loaded legacy data", async (
   assert.equal((await readCatalog({ store: fixture.store })).catalog.products.length, 2);
 });
 
-test("one-off function refuses when the server-side legacy sources are unavailable", async () => {
+test("one-off function refuses when the backend seed is unavailable", async () => {
   const fixture = createInitializationFixture({
-    loadLegacyData: async () => undefined
+    loadCatalogSeed: async () => undefined
   });
   const response = await fixture.handler(createInitializationRequest(), fixture.context);
 
@@ -607,9 +598,9 @@ test("one-off function refuses when the server-side legacy sources are unavailab
   assert.equal(fixture.store.writes, 0);
 });
 
-test("one-off function refuses when server-side source loading fails", async () => {
+test("one-off function refuses when backend seed loading fails", async () => {
   const fixture = createInitializationFixture({
-    loadLegacyData: async () => { throw new Error("sources unavailable"); }
+    loadCatalogSeed: async () => { throw new Error("seed unavailable"); }
   });
   const response = await fixture.handler(createInitializationRequest(), fixture.context);
 
@@ -620,7 +611,7 @@ test("one-off function refuses when server-side source loading fails", async () 
 
 test("one-off function reports an existing catalog and never overwrites it", async () => {
   const store = makeMemoryStore();
-  await initializeCatalogFromLegacy(legacyData, { store });
+  await initializeCatalog(prepareInitialCatalogFromSeed(catalogSeed), { store });
   const fixture = createInitializationFixture({ store });
   const response = await fixture.handler(createInitializationRequest(), fixture.context);
 

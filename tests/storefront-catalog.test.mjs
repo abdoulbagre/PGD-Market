@@ -8,13 +8,21 @@ const loadBrowserModule = async (path) => {
   return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 };
 
-const [{ CatalogLoadError, createCatalogClient, isPublicProduct }, currency] = await Promise.all([
-  loadBrowserModule("../public/assets/js/catalog.js"),
-  loadBrowserModule("../public/assets/js/currency.js")
+const [{
+  CatalogLoadError,
+  createCatalogClient,
+  findCatalogProduct,
+  isPublicProduct,
+  migrateLegacyProductIds,
+  plainTextDescription
+}, currency] = await Promise.all([
+  loadBrowserModule("../frontend/storefront/assets/js/catalog.js"),
+  loadBrowserModule("../frontend/storefront/assets/js/currency.js")
 ]);
 
 const product = (overrides = {}) => ({
-  id: "550e8400-e29b-41d4-a716-446655440000",
+  id: "prd_5lj7fz8k",
+  legacyPgdId: "550e8400-e29b-41d4-a716-446655440000",
   name: "Produit FR",
   description: "Description FR<br>suite",
   price: 4200,
@@ -33,7 +41,7 @@ const catalogResponse = (products = [product()]) => new Response(JSON.stringify(
   headers: { "Content-Type": "application/json" }
 });
 
-test("public catalog validates the real projected shape and excludes internal fields", () => {
+test("public catalog validates Chariow IDs, real prices, currencies, and safe image URLs", () => {
   assert.equal(isPublicProduct(product()), true);
   assert.equal(isPublicProduct(product({
     name: { fr: "Nom français historique", en: "Legacy English name" },
@@ -42,10 +50,47 @@ test("public catalog validates the real projected shape and excludes internal fi
       en: "Legacy English description"
     }
   })), true);
-  assert.equal(isPublicProduct(product({ chariowProductId: "prd_private" })), false);
+  assert.equal(isPublicProduct(product({ id: "invalid" })), false);
+  assert.equal(isPublicProduct(product({ id: "550e8400-e29b-41d4-a716-446655440000" })), false);
+  assert.equal(isPublicProduct(product({ legacyPgdId: "not-a-uuid" })), false);
+  assert.equal(isPublicProduct(product({ legacyPgdId: null })), true);
   assert.equal(isPublicProduct(product({ files: ["delivery.pdf"] })), false);
   assert.equal(isPublicProduct(product({ price: "4200" })), false);
-  assert.equal(isPublicProduct(product({ currency: "GBP" })), false);
+  assert.equal(isPublicProduct(product({ price: 4200.5 })), true);
+  assert.equal(isPublicProduct(product({ currency: "GHS" })), true);
+  assert.equal(isPublicProduct(product({ image: "http://cdn.example/image.jpg" })), false);
+  assert.equal(isPublicProduct(product({ image: "https://cdn.example/image.jpg" })), true);
+});
+
+test("legacy product references migrate only through exact catalog mappings", () => {
+  const secondProduct = product({
+    id: "prd_ln1r0vbr",
+    legacyPgdId: "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90"
+  });
+  const catalog = [product(), secondProduct];
+  const unknownLegacyId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+  assert.equal(findCatalogProduct(catalog, "prd_5lj7fz8k"), catalog[0]);
+  assert.equal(findCatalogProduct(catalog, "550e8400-e29b-41d4-a716-446655440000"), catalog[0]);
+  assert.equal(findCatalogProduct(catalog, unknownLegacyId), null);
+  assert.deepEqual(
+    migrateLegacyProductIds([
+      "550e8400-e29b-41d4-a716-446655440000",
+      "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90",
+      unknownLegacyId,
+      "prd_5lj7fz8k"
+    ], catalog),
+    ["prd_5lj7fz8k", "prd_ln1r0vbr", unknownLegacyId]
+  );
+});
+
+test("Chariow HTML descriptions become readable text without executable markup", () => {
+  assert.equal(
+    plainTextDescription(
+      "<p><strong>Créer</strong> vite &amp; bien.</p><ul><li>Préparer</li><li>Tester</li></ul><script>alert(1)</script>"
+    ),
+    "Créer vite & bien.\nPréparer\nTester"
+  );
 });
 
 test("catalog loading uses the public endpoint and shares one in-flight request", async () => {
@@ -91,7 +136,7 @@ test("catalog failures distinguish network, HTTP, invalid JSON, and invalid data
     ["invalid JSON", async () => new Response("{", { status: 200 }), "invalid-json"],
     ["invalid projection", async () => new Response(JSON.stringify({
       success: true,
-      products: [product({ chariowProductId: "prd_private" })],
+      products: [product({ id: "invalid" })],
       count: 1
     }), { status: 200 }), "invalid-data"]
   ];
@@ -120,39 +165,69 @@ test("failed requests can be retried and a successful result is then cached", as
   assert.equal(calls, 2);
 });
 
-test("display prices convert from the product's actual base currency", () => {
-  assert.equal(currency.convertPriceBetweenCurrencies(4200, "XOF", "XOF"), 4200);
-  assert.equal(currency.convertPriceBetweenCurrencies(100, "EUR", "XOF"), 100 / 0.00152);
-  assert.equal(currency.convertPriceBetweenCurrencies(100, "USD", "EUR"), 100 / 0.00165 * 0.00152);
-  assert.match(currency.formatDisplayPrice(100, "EUR", "EUR"), /100/);
+test("catalog prices retain their currency and mixed-currency totals are not calculated", () => {
+  assert.equal("convertPriceBetweenCurrencies" in currency, false);
+  assert.equal("CHECKOUT_CURRENCY" in currency, false);
+  assert.match(currency.formatDisplayPrice(4200, "XOF"), /4.*200/);
+  assert.match(currency.formatDisplayPrice(4200, "XOF"), /XOF/);
+  assert.match(currency.formatDisplayPrice(100, "EUR"), /100.*EUR/);
+  assert.deepEqual(currency.sumPricesInSameCurrency([product(), product({ price: 700 })]), {
+    amount: 4900,
+    currency: "XOF"
+  });
+  assert.equal(currency.sumPricesInSameCurrency([product(), product({ currency: "EUR" })]), null);
+  assert.equal(currency.sumPricesInSameCurrency([]), null);
 });
 
-test("storefront pages use catalog data and payment request omits amount and Chariow ID", async () => {
-  const app = await readFile(new URL("../public/assets/js/app.js", import.meta.url), "utf8");
+test("storefront checkout sends the Chariow ID and omits client-controlled amounts", async () => {
+  const app = await readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8");
+  const successPage = await readFile(new URL("../frontend/storefront/success.html", import.meta.url), "utf8");
   const htmlPages = await Promise.all([
-    "../public/index.html",
-    "../public/boutique.html",
-    "../public/produit.html",
-    "../public/panier.html",
-    "../public/commande.html"
+    "../frontend/storefront/index.html",
+    "../frontend/storefront/boutique.html",
+    "../frontend/storefront/produit.html",
+    "../frontend/storefront/panier.html",
+    "../frontend/storefront/commande.html"
   ].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
 
   assert.match(app, /createCatalogClient\(\)/);
+  assert.match(app, /plainTextDescription/);
   assert.doesNotMatch(app, /from "\.\/products\.js"/);
-  assert.match(app, /catalogProducts\.find\(\(product\) => product\.id === id\)/);
+  assert.doesNotMatch(app, /convertPriceBetweenCurrencies/);
+  assert.match(app, /findCatalogProduct\(catalogProducts, id\)/);
+  assert.match(app, /productFromUrlId/);
+  assert.match(app, /history\.replaceState/);
   assert.match(app, /shop\.noResults/);
   assert.match(app, /catalog\.noProducts/);
-  assert.match(app, /produitId: product\.id, currency: selectedCurrency/);
-  assert.doesNotMatch(app.match(/JSON\.stringify\(\{[^}]+\}\)/)?.[0] || "", /price|chariowProductId/);
+  assert.match(app, /produitId: product\.id/);
+  assert.doesNotMatch(app, /chariowProductId|currency: CHECKOUT_CURRENCY/);
+  assert.match(app, /migrateLegacyProductIds\(cartIds, catalogProducts\)/);
+  assert.match(app, /writeCart\(migratedCartIds\)/);
+  assert.doesNotMatch(app, /crypto\.randomUUID|randomUUID/);
+  assert.match(app, /produit\.html\?id=\$\{encodeURIComponent\(product\.id\)\}/);
+  assert.match(app, /commande\.html\?id=\$\{encodeURIComponent\(product\.id\)\}/);
+  assert.match(app, /sumPricesInSameCurrency/);
+  assert.match(app, /memoryCart/);
+  assert.match(app, /cartStorageUnavailable/);
+  assert.match(htmlPages[4], /maxlength="2"/);
+  assert.doesNotMatch(app.match(/JSON\.stringify\(\{[^}]+\}\)/)?.[0] || "", /price|currency/);
+  assert.match(app, /data\.status === "completed"/);
+  assert.match(app, /ALREADY_PURCHASED/);
   assert.ok(htmlPages.every((html) => html.includes('assets/js/app.js')));
   assert.match(app, /data-catalog-retry/);
+  assert.match(successPage, /Retour du paiement/);
+  assert.match(successPage, /ne confirme pas à elle seule le statut/);
+  assert.doesNotMatch(successPage, /paiement réussi|commande a été effectuée avec succès|data-i18n="successPage/);
+  assert.doesNotMatch(app, /successPage\.(heading|delivery|spam|thanks)/);
+  const resultPageLogic = app.slice(app.indexOf("function setupResult"), app.indexOf("async function renderPage"));
+  assert.doesNotMatch(resultPageLogic, /localStorage|writeCart/);
 });
 
 test("storefront cart CTAs expose add feedback and an accessible cart count", async () => {
   const [app, fr, theme] = await Promise.all([
-    readFile(new URL("../public/assets/js/app.js", import.meta.url), "utf8"),
-    readFile(new URL("../public/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
-    readFile(new URL("../public/assets/css/premium.css", import.meta.url), "utf8")
+    readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/storefront/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("../frontend/storefront/assets/css/premium.css", import.meta.url), "utf8")
   ]);
   assert.match(app, /button\.classList\.add\("is-added"\)/);
   assert.match(app, /cart\.added/);
@@ -172,9 +247,9 @@ test("storefront cart CTAs expose add feedback and an accessible cart count", as
 
 test("the storefront uses French text only and has no English locale dependency", async () => {
   const [fr, app, frenchModule] = await Promise.all([
-    readFile(new URL("../public/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
-    readFile(new URL("../public/assets/js/app.js", import.meta.url), "utf8"),
-    readFile(new URL("../public/assets/js/french.js", import.meta.url), "utf8")
+    readFile(new URL("../frontend/storefront/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/storefront/assets/js/french.js", import.meta.url), "utf8")
   ]);
   assert.equal(typeof fr.catalog.loading, "string");
   assert.equal(typeof fr.catalog.noProducts, "string");
@@ -186,9 +261,11 @@ test("the storefront uses French text only and has no English locale dependency"
   assert.equal(typeof fr.shop.noResults, "string");
   assert.equal(typeof fr.product.notFound, "string");
   assert.equal(typeof fr.cart.staleReferences, "string");
+  assert.match(fr.product.notFound, /Sélectionnez de nouveau le produit/);
+  assert.match(fr.cart.staleReferences, /Sélectionnez de nouveau le produit/);
   assert.equal(typeof fr.cart.removeStale, "string");
   assert.match(app, /initFrench/);
   assert.doesNotMatch(app, /languagechange|documentElement\.lang === "en"|language\.js|en\.json/);
   assert.doesNotMatch(frenchModule, /setLanguage|data-language-select|en\.json|localStorage/);
-  assert.equal(existsSync(new URL("../public/locales/en.json", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../frontend/storefront/locales/en.json", import.meta.url)), false);
 });

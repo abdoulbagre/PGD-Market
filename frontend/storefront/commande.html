@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+
+        <!-- Meta Pixel Code -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1138872192155800');
+    fbq('track', 'PageView');
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1138872192155800&ev=PageView&noscript=1"
+    /></noscript>
+    <!-- End Meta Pixel Code -->
+
+    <meta name="robots" content="noindex,follow">
+    <meta name="description" content="Finalisez votre commande PGD Market et accédez au paiement sécurisé pour récupérer votre guide numérique.">
+    <link rel="canonical" href="https://pgd-market.netlify.app/commande.html">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Commande | PGD Market">
+    <meta property="og:description" content="Paiement sécurisé et accès immédiat aux ressources achetées.">
+    <meta property="og:url" content="https://pgd-market.netlify.app/commande.html">
+    <meta property="og:image" content="https://pgd-market.netlify.app/assets/Background/logo.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Commande | PGD DIGITAL</title>
+    <link rel="stylesheet" href="assets/css/editorial.css">
+</head>
+
+<body class="checkout-page" data-page="checkout">
+    <header class="site-header" data-header></header>
+    <main class="container page-shell">
+        <div class="checkout-layout">
+            <form id="checkout-form" class="form-panel" novalidate>
+                <div class="checkout-form-heading checkout-animate checkout-delay-1">
+                    <h1 data-i18n="checkout.title"></h1>
+                    <p>Renseignez vos coordonnées pour poursuivre le paiement sur Chariow.</p>
+                </div>
+                <section class="checkout-order" aria-labelledby="checkout-order-title">
+                    <h2 id="checkout-order-title" data-i18n="checkout.summary"></h2>
+                    <p data-i18n="checkout.privacy"></p>
+                </section>
+                <fieldset class="checkout-fields checkout-animate checkout-delay-5">
+                    <legend>Vos coordonnées</legend>
+                    <div class="checkout-fields-grid">
+                        <label class="checkout-field"><span data-i18n="checkout.name"></span><input id="nom" name="nom" autocomplete="name" required></label>
+                        <label class="checkout-field"><span data-i18n="checkout.email"></span><input id="email" name="email" type="email" autocomplete="email" required></label>
+                        <div class="checkout-phone-row">
+                            <label class="checkout-field"><span data-i18n="checkout.phone">Téléphone</span><input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required></label>
+                            <label class="checkout-field"><span data-i18n="checkout.phoneCountryCode">Code pays du téléphone</span><input id="phone-country-code" name="phone-country-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" pattern="[A-Za-z]{2}" data-i18n-placeholder="checkout.phoneCountryCodePlaceholder" placeholder="Ex. : BF" maxlength="2" required></label>
+                        </div>
+                    </div>
+                </fieldset>
+                <button class="button button-primary checkout-animate checkout-delay-7" type="submit"><span class="checkout-button-content"><span class="button-arrow-animate" aria-hidden="true">→</span><span class="button-text-animate" data-i18n="checkout.pay"></span></span></button>
+                <p id="payment-message" class="form-message checkout-animate checkout-delay-8" role="alert" aria-live="polite"></p>
+            </form>
+            <aside class="checkout-aside" aria-labelledby="checkout-aside-title">
+                <h2 id="checkout-aside-title" class="checkout-aside__title">Votre sélection</h2>
+                <section id="checkout-summary" class="summary-panel" aria-live="polite"></section>
+                <p>Après validation de vos coordonnées, vous serez redirigé vers Chariow pour finaliser le paiement.</p>
+            </aside>
+        </div>
+    </main>
+    <footer class="site-footer" data-footer></footer>
+    <script type="module" src="assets/js/app.js"></script>
+</body>
+
+</html>
