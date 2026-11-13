@@ -140,7 +140,11 @@ test("sales list proxies documented pagination and search with a minimal respons
         created_at: "2025-01-02T03:04:05Z",
         completed_at: "2025-01-02T03:05:05Z",
         product: { id: "prd_course", name: "Cours", slug: "cours", secret: API_KEY },
-        payment: { status: "success", transaction_id: "txn-private" },
+        payment: {
+          status: "success",
+          amount: { value: 12.5, formatted: "€12.50", currency: "EUR", secret: API_KEY },
+          transaction_id: "txn-private"
+        },
         customer: { email: "private@example.com" },
         shipping: { address: "private address" },
         invoice_download_url: "https://private.example/invoice",
@@ -160,7 +164,7 @@ test("sales list proxies documented pagination and search with a minimal respons
     })
   });
   const response = await fixture.handler(makeRequest(
-    "resource=sales&per_page=20&cursor=previous-page&search=sal_abc123"
+    "resource=sales&per_page=20&cursor=previous-page&search=sal_abc123&status=completed&period=last30days"
   ));
   const body = await response.json();
   const requestedUrl = new URL(fixture.calls[0].url);
@@ -170,6 +174,8 @@ test("sales list proxies documented pagination and search with a minimal respons
   assert.equal(requestedUrl.searchParams.get("per_page"), "20");
   assert.equal(requestedUrl.searchParams.get("cursor"), "previous-page");
   assert.equal(requestedUrl.searchParams.get("search"), "sal_abc123");
+  assert.equal(requestedUrl.searchParams.get("status"), "completed");
+  assert.equal(requestedUrl.searchParams.get("period"), "last30days");
   assert.deepEqual(body.data[0], {
     id: "sal_abc123",
     status: "completed",
@@ -179,7 +185,10 @@ test("sales list proxies documented pagination and search with a minimal respons
     original_amount: { value: 15, formatted: "€15.00", currency: "EUR" },
     discount_amount: { value: 2.5, formatted: "€2.50", currency: "EUR" },
     product: { id: "prd_course", name: "Cours" },
-    payment: { status: "success" }
+    payment: {
+      status: "success",
+      amount: { value: 12.5, formatted: "€12.50", currency: "EUR" }
+    }
   });
   assert.deepEqual(body.pagination, {
     count: 1,
@@ -241,7 +250,11 @@ test("sales pagination and identifiers reject invalid parameters without upstrea
     "resource=sales&per_page=0",
     "resource=sales&cursor=%0A",
     `resource=sales&search=${"x".repeat(256)}`,
-    "resource=sales&status=completed",
+    "resource=sales&status=unknown",
+    "resource=sales&from=2025-02-31",
+    "resource=sales&from=2025-02-02&to=2025-02-01",
+    "resource=sales&period=unsupported",
+    "resource=sales&period=last30days&from=2025-01-01",
     "resource=sale&saleId=sal_one%2F..%2Fstore",
     "resource=sale&saleId=not-a-sale-id"
   ];

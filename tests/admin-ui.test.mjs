@@ -7,7 +7,8 @@ const {
   createAdminCatalogController,
   createAdminSessionLifecycle,
   getProductActions,
-  getProductStatusTransition
+  getProductStatusTransition,
+  summarizeChariowAnalytics
 } = await import(
   `data:text/javascript;base64,${Buffer.from(uiSource).toString("base64")}`
 );
@@ -27,34 +28,78 @@ test("catalog management reuses the existing administrator authentication flow",
   assert.doesNotMatch(catalogScript, /const authEndpoint/);
 });
 
-test("catalogue navigation, stats, filters, and product rows expose their purpose", async () => {
+test("the authenticated Admin opens the Chariow dashboard and analytics views", async () => {
   const [html, uiScript] = await Promise.all([
     readFile(new URL("../frontend/admin/admin.html", import.meta.url), "utf8"),
     readFile(new URL("../frontend/admin/assets/js/admin-ui.js", import.meta.url), "utf8")
   ]);
-  for (const stat of ["total", "published", "available", "archived"]) {
-    assert.match(html, new RegExp(`data-stat-${stat}`));
-  }
-  for (const filter of ["all", "published", "available"]) {
-    assert.match(html, new RegExp(`data-product-filter="${filter}"`));
-  }
-  assert.match(html, /data-admin-view="products" aria-current="page"/);
-  assert.match(html, /<span>Catalogue<\/span>/);
-  assert.match(html, /data-admin-archives/);
-  assert.match(html, /role="table" aria-label="Produits du catalogue"/);
-  assert.match(html, /id="products-col-product" role="columnheader">Produit/);
-  assert.doesNotMatch(html, /class="admin-product-table-head" aria-hidden/);
-  assert.match(uiScript, /card\.setAttribute\("role", "row"\)/);
-  assert.match(uiScript, /identity\.setAttribute\("role", "cell"\)/);
-  assert.match(uiScript, /new Intl\.NumberFormat\("fr-FR"\)/);
-  assert.match(uiScript, /Actions pour \$\{frenchText\(product\.name\)\}/);
-  assert.match(uiScript, /function renderDashboardStats/);
-  assert.match(uiScript, /productFilter === "published"/);
-  assert.match(uiScript, /productFilter === "available"/);
-  assert.match(uiScript, /delete productsStatus\.dataset\.state;\s*delete archivesStatus\.dataset\.state;/);
-  assert.doesNotMatch(uiScript, /window\.(?:confirm|prompt)\(/);
-  assert.match(html, /<dialog class="admin-dialog"/);
-  assert.match(uiScript, /function showConfirmation/);
+  assert.match(html, /data-admin-view="chariow" aria-current="page"/);
+  assert.doesNotMatch(html, /data-admin-view="products"/);
+  assert.match(html, /data-chariow-tab="overview"/);
+  assert.match(html, /data-chariow-tab="products"/);
+  assert.match(html, /data-chariow-tab="sales"/);
+  assert.match(html, /data-chariow-analytics-period/);
+  assert.match(html, /data-chariow-sales-chart/);
+  assert.match(html, /data-chariow-product-breakdown/);
+  assert.match(uiScript, /if \(loadData && name === "chariow"\) chariowController\.activate\(\)/);
+  assert.match(uiScript, /credentials: "same-origin"/);
+  assert.match(uiScript, /cache: "no-store"/);
+});
+
+test("Chariow analytics deduplicate sales and keep revenue separated by currency", () => {
+  const summary = summarizeChariowAnalytics({
+    now: new Date("2025-01-08T12:00:00.000Z"),
+    period: "last7days",
+    products: [
+      { id: "prd_a", status: "published" },
+      { id: "prd_b", status: "draft" }
+    ],
+    sales: [
+      {
+        id: "sal_a",
+        status: "completed",
+        created_at: "2025-01-08T09:00:00.000Z",
+        product: { id: "prd_a", name: "Guide A" },
+        payment: {
+          status: "success",
+          amount: { value: 100, currency: "XOF" }
+        }
+      },
+      {
+        id: "sal_a",
+        status: "settled",
+        created_at: "2025-01-08T09:00:00.000Z",
+        product: { id: "prd_a", name: "Guide A" },
+        payment: {
+          status: "success",
+          amount: { value: 100, currency: "XOF" }
+        }
+      },
+      {
+        id: "sal_b",
+        status: "settled",
+        created_at: "2025-01-07T09:00:00.000Z",
+        product: { id: "prd_b", name: "Guide B" },
+        payment: {
+          status: "success",
+          amount: { value: 12.5, currency: "EUR" }
+        }
+      }
+    ]
+  });
+
+  assert.equal(summary.totalProducts, 2);
+  assert.equal(summary.publishedProducts, 1);
+  assert.equal(summary.salesCount, 2);
+  assert.deepEqual(summary.revenueByCurrency, [
+    { currency: "EUR", amount: 12.5 },
+    { currency: "XOF", amount: 100 }
+  ]);
+  assert.equal(summary.salesByBucket.find((bucket) => bucket.key === "2025-01-08").count, 1);
+  assert.deepEqual(summary.topProducts.map(({ id, count }) => ({ id, count })), [
+    { id: "prd_a", count: 1 },
+    { id: "prd_b", count: 1 }
+  ]);
 });
 
 test("catalog initialization uses the accessible confirmation dialog", async () => {

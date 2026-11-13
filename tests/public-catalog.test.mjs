@@ -1,59 +1,41 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CatalogStorageError } from "../backend/services/catalog/_catalog.mjs";
 import { createPublicCatalogHandler } from "../backend/functions/public-catalog.mjs";
+import { ChariowApiError } from "../backend/services/chariow/products.mjs";
 
 const ORIGIN = "https://pgd-market.netlify.app";
-const product = (overrides = {}) => ({
-  id: "550e8400-e29b-41d4-a716-446655440000",
-  name: "Produit FR",
-  description: "Description FR",
-  price: 4200,
-  currency: "XOF",
-  image: "assets/images/1.jpg",
-  category: "Guides",
-  chariowProductId: "prd_hidden_reference",
-  available: true,
-  published: true,
-  archivedAt: null,
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
+const firstProductId = "prd_5lj7fz8k";
+const secondProductId = "prd_ln1r0vbr";
+const chariowProduct = (overrides = {}) => ({
+  id: firstProductId,
+  name: "Produit Chariow",
+  description: "Description Chariow",
+  type: "downloadable",
+  status: "published",
+  is_free: false,
+  has_variant_pricing: false,
+  category: { value: "guides", label: "Guides" },
+  pictures: {
+    cover: "https://cdn.chariow.com/products/cover.jpg",
+    thumbnail: "https://cdn.chariow.com/products/thumbnail.jpg"
+  },
+  pricing: {
+    type: "fixed",
+    current_price: { value: 4200.5, currency: "XOF" }
+  },
+  quantity: null,
   ...overrides
-});
-const catalog = (products = [product()]) => ({
-  schemaVersion: 2,
-  updatedAt: "2026-01-02T00:00:00.000Z",
-  products
 });
 const request = (method = "GET") =>
   new Request(`${ORIGIN}/.netlify/functions/public-catalog`, { method });
-const handlerFor = (value) => createPublicCatalogHandler({
-  catalogReader: async () => ({ catalog: value })
+const handlerFor = (products, options = {}) => createPublicCatalogHandler({
+  productReader: async () => products,
+  env: { CHARIOW_ADMIN_API_KEY: "server-only-key", ...options.env }
 });
 
-test("public GET includes only visible products and projects public fields", async () => {
-  const value = catalog([
-    product(),
-    product({
-      id: "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90",
-      archivedAt: "2026-01-02T00:00:00.000Z"
-    }),
-    product({
-      id: "8f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c91",
-      available: false
-    }),
-    product({
-      id: "9f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c92",
-      available: false,
-      published: false
-    }),
-    product({
-      id: "0f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c93",
-      chariowProductId: null,
-      available: false
-    })
-  ]);
-  const response = await handlerFor(value)(request());
+test("public GET projects Chariow data and preserves the legacy ID for existing products", async () => {
+  const source = chariowProduct();
+  const response = await handlerFor([source])(request());
   const body = await response.json();
 
   assert.equal(response.status, 200);
@@ -61,44 +43,71 @@ test("public GET includes only visible products and projects public fields", asy
     success: true,
     count: 1,
     products: [{
-      id: value.products[0].id,
-      name: value.products[0].name,
-      description: value.products[0].description,
-      price: 4200,
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      chariowProductId: firstProductId,
+      name: source.name,
+      description: source.description,
+      price: 4200.5,
       currency: "XOF",
-      image: "assets/images/1.jpg",
+      image: source.pictures.cover,
       category: "Guides"
     }]
   });
-  assert.deepEqual(Object.keys(body.products[0]).sort(), [
-    "category", "currency", "description", "id", "image", "name", "price"
-  ]);
-  assert.doesNotMatch(JSON.stringify(body), /chariow|archivedAt|createdAt|updatedAt|schemaVersion|delivery|fichier/i);
+  assert.doesNotMatch(JSON.stringify(body), /server-only-key|Authorization|delivery|fichier/i);
 });
 
-test("public catalog projects French values from existing bilingual records", async () => {
-  const legacy = product({
-    name: { fr: "Nom français conservé", en: "Legacy English name" },
-    description: {
-      fr: "Description française conservée",
-      en: "Legacy English description"
+test("public catalog selects the current price and falls back to the local image safely", async () => {
+  const source = chariowProduct({
+    id: secondProductId,
+    pictures: { cover: "http://insecure.example/image.jpg", thumbnail: null },
+    pricing: {
+      type: "fixed",
+      current_price: { value: 15.75, currency: "EUR" },
+      effective: { value: 15.75, currency: "EUR" }
     }
   });
-  const response = await handlerFor(catalog([legacy]))(request());
+  const response = await handlerFor([source])(request());
+  const body = await response.json();
+
+  assert.equal(body.products[0].id, "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90");
+  assert.equal(body.products[0].price, 15.75);
+  assert.equal(body.products[0].currency, "EUR");
+  assert.equal(body.products[0].image, "assets/images/2.jpg");
+});
+
+test("public catalog excludes unsupported products but includes new Chariow products", async () => {
+  const newProduct = chariowProduct({ id: "prd_new_product" });
+  const response = await handlerFor([
+    chariowProduct({ status: "draft" }),
+    chariowProduct({ id: secondProductId, has_variant_pricing: true }),
+    chariowProduct({ id: secondProductId, is_free: true }),
+    chariowProduct({ id: secondProductId, type: "service" }),
+    chariowProduct({ id: secondProductId, pricing: { type: "what_you_want" } }),
+    chariowProduct({ id: secondProductId, quantity: { remaining: { value: 0 } } }),
+    newProduct
+  ])(request());
   const body = await response.json();
 
   assert.equal(response.status, 200);
-  assert.equal(body.products[0].name, "Nom français conservé");
-  assert.equal(body.products[0].description, "Description française conservée");
-  assert.doesNotMatch(JSON.stringify(body), /Legacy English/);
+  assert.equal(body.count, 1);
+  assert.deepEqual(body.products[0], {
+    id: "prd_new_product",
+    chariowProductId: "prd_new_product",
+    name: newProduct.name,
+    description: newProduct.description,
+    price: 4200.5,
+    currency: "XOF",
+    image: newProduct.pictures.cover,
+    category: "Guides"
+  });
 });
 
-test("public endpoint rejects non-GET methods without reading storage", async () => {
+test("public endpoint rejects non-GET methods without contacting Chariow", async () => {
   let reads = 0;
   const handler = createPublicCatalogHandler({
-    catalogReader: async () => {
+    productReader: async () => {
       reads += 1;
-      return { catalog: catalog() };
+      return [];
     }
   });
   for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
@@ -110,7 +119,7 @@ test("public endpoint rejects non-GET methods without reading storage", async ()
 });
 
 test("public responses use the documented cache and security headers", async () => {
-  const response = await handlerFor(catalog())(request());
+  const response = await handlerFor([])(request());
   assert.equal(response.headers.get("content-type"), "application/json; charset=utf-8");
   assert.equal(
     response.headers.get("cache-control"),
@@ -119,24 +128,21 @@ test("public responses use the documented cache and security headers", async () 
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
 });
 
-test("public endpoint reports sanitized catalog errors", async (t) => {
-  for (const [code, expectedCode] of [
-    ["CATALOG_NOT_FOUND", "CATALOG_NOT_INITIALIZED"],
-    ["CATALOG_CORRUPT", "CATALOG_INVALID"],
-    ["CATALOG_UNAVAILABLE", "CATALOG_UNAVAILABLE"]
+test("upstream failures are sanitized and configuration values are not exposed", async (t) => {
+  for (const error of [
+    new ChariowApiError(503, "CHARIOW_CONFIGURATION_MISSING", "private configuration"),
+    new ChariowApiError(503, "CHARIOW_SCOPE_MISSING", "private scope detail"),
+    new ChariowApiError(504, "CHARIOW_TIMEOUT", "private timeout detail")
   ]) {
-    await t.test(code, async () => {
-      const handler = createPublicCatalogHandler({
-        catalogReader: async () => {
-          throw new CatalogStorageError(code, 503, "private storage details");
-        }
-      });
-      const response = await handler(request());
+    await t.test(error.code, async () => {
+      const response = await createPublicCatalogHandler({
+        productReader: async () => { throw error; }
+      })(request());
       const body = await response.json();
 
-      assert.equal(response.status, 503);
-      assert.equal(body.error, expectedCode);
-      assert.doesNotMatch(JSON.stringify(body), /private storage details|stack|secret|token/i);
+      assert.equal(response.status, error.status === 504 ? 504 : 503);
+      assert.equal(body.error, error.code);
+      assert.doesNotMatch(JSON.stringify(body), /private|secret|token|key/i);
     });
   }
 });

@@ -1,7 +1,5 @@
 const DISPLAY_CURRENCY_STORAGE_KEY = "pgd-display-currency";
 
-export const CHECKOUT_CURRENCY = "XOF";
-
 export const formatDisplayPrice = (price, currency) =>
   new Intl.NumberFormat("fr-FR", {
     style: "currency",
@@ -16,7 +14,7 @@ export const sumPricesInSameCurrency = (products) => {
   if (!products.every((product) => product.currency === currency)) return null;
 
   const amount = products.reduce((sum, product) => sum + product.price, 0);
-  return Number.isSafeInteger(amount) ? { amount, currency } : null;
+  return Number.isFinite(amount) ? { amount, currency } : null;
 };
 
 export const clearLegacyCurrencyPreference = () => {

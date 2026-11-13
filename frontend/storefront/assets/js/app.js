@@ -1,7 +1,6 @@
 import { createCatalogClient } from "./catalog.js";
 import { initFrench, t } from "./french.js";
 import {
-  CHECKOUT_CURRENCY,
   formatDisplayPrice,
   sumPricesInSameCurrency,
   clearLegacyCurrencyPreference
@@ -16,7 +15,8 @@ const productText = (product, field) => typeof product[field] === "string"
   : product[field].fr;
 const productDescription = (product) =>
   escapeHtml(productText(product, "description")).replace(/&lt;br\s*\/?&gt;/gi, "<br>");
-const productImage = (product) => new URL(`../../${product.image}`, import.meta.url).href;
+const productImage = (product) =>
+  new URL(product.image, new URL("../../", import.meta.url)).href;
 const cartKey = "pgd-cart";
 const normalizeCart = (cart) => [...new Set(cart.filter((productId) => typeof productId === "string"))];
 let memoryCart = null;
@@ -449,7 +449,15 @@ function setupProduct(product) {
   bindCartButtons(target);
   bindProductSticky(target);
 }
-function mapPaymentError(error) { const message = String(error?.message || ""); if (/produit|product|vente|sale/i.test(message)) return t("errors.productUnavailable"); if (/initialiser|initialize|paiement|payment|indisponible|unavailable|checkout/i.test(message)) return t("checkout.paymentFailed"); return t("errors.unknown"); }
+function mapPaymentError(error) {
+  const message = String(error?.message || "");
+  if (message === "ALREADY_PURCHASED") return t("checkout.alreadyPurchased");
+  if (/produit|product|vente|sale/i.test(message)) return t("errors.productUnavailable");
+  if (/initialiser|initialize|paiement|payment|indisponible|unavailable|checkout|CHARIOW_/i.test(message)) {
+    return t("checkout.paymentFailed");
+  }
+  return t("errors.unknown");
+}
 function setupCheckout(product) {
   const summary = document.getElementById("checkout-summary");
   const form = document.getElementById("checkout-form");
@@ -534,13 +542,23 @@ function setupCheckout(product) {
       const response = await fetch("/.netlify/functions/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nom: name, email, phone, phoneCountryCode, produitId: product.id, currency: CHECKOUT_CURRENCY })
+        body: JSON.stringify({
+          nom: name,
+          email,
+          phone,
+          phoneCountryCode,
+          produitId: product.chariowProductId
+        })
       });
       let data;
       try { data = await response.json(); } catch { throw new Error("invalid-json"); }
-      if (!response.ok) throw new Error(data.error || "server-error");
+      if (!response.ok) throw new Error(data.code || data.error || "server-error");
+      if (data.status === "completed") {
+        location.href = "success.html";
+        return;
+      }
       const url = data.checkout_url || "";
-      if (!url) throw new Error("missing-payment-data");
+      if (data.status !== "payment" || !url) throw new Error("missing-payment-data");
       location.href = url;
     } catch (error) {
       const knownErrors = ["invalid-json", "missing-payment-data", "server-error"];

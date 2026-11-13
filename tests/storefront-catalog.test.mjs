@@ -15,6 +15,7 @@ const [{ CatalogLoadError, createCatalogClient, isPublicProduct }, currency] = a
 
 const product = (overrides = {}) => ({
   id: "550e8400-e29b-41d4-a716-446655440000",
+  chariowProductId: "prd_5lj7fz8k",
   name: "Produit FR",
   description: "Description FR<br>suite",
   price: 4200,
@@ -33,7 +34,7 @@ const catalogResponse = (products = [product()]) => new Response(JSON.stringify(
   headers: { "Content-Type": "application/json" }
 });
 
-test("public catalog validates the real projected shape and excludes internal fields", () => {
+test("public catalog validates Chariow IDs, real prices, currencies, and safe image URLs", () => {
   assert.equal(isPublicProduct(product()), true);
   assert.equal(isPublicProduct(product({
     name: { fr: "Nom français historique", en: "Legacy English name" },
@@ -42,10 +43,13 @@ test("public catalog validates the real projected shape and excludes internal fi
       en: "Legacy English description"
     }
   })), true);
-  assert.equal(isPublicProduct(product({ chariowProductId: "prd_private" })), false);
+  assert.equal(isPublicProduct(product({ chariowProductId: "invalid" })), false);
   assert.equal(isPublicProduct(product({ files: ["delivery.pdf"] })), false);
   assert.equal(isPublicProduct(product({ price: "4200" })), false);
-  assert.equal(isPublicProduct(product({ currency: "GBP" })), false);
+  assert.equal(isPublicProduct(product({ price: 4200.5 })), true);
+  assert.equal(isPublicProduct(product({ currency: "GHS" })), true);
+  assert.equal(isPublicProduct(product({ image: "http://cdn.example/image.jpg" })), false);
+  assert.equal(isPublicProduct(product({ image: "https://cdn.example/image.jpg" })), true);
 });
 
 test("catalog loading uses the public endpoint and shares one in-flight request", async () => {
@@ -91,7 +95,7 @@ test("catalog failures distinguish network, HTTP, invalid JSON, and invalid data
     ["invalid JSON", async () => new Response("{", { status: 200 }), "invalid-json"],
     ["invalid projection", async () => new Response(JSON.stringify({
       success: true,
-      products: [product({ chariowProductId: "prd_private" })],
+      products: [product({ chariowProductId: "invalid" })],
       count: 1
     }), { status: 200 }), "invalid-data"]
   ];
@@ -122,7 +126,7 @@ test("failed requests can be retried and a successful result is then cached", as
 
 test("catalog prices retain their currency and mixed-currency totals are not calculated", () => {
   assert.equal("convertPriceBetweenCurrencies" in currency, false);
-  assert.equal(currency.CHECKOUT_CURRENCY, "XOF");
+  assert.equal("CHECKOUT_CURRENCY" in currency, false);
   assert.match(currency.formatDisplayPrice(4200, "XOF"), /4.*200/);
   assert.match(currency.formatDisplayPrice(4200, "XOF"), /XOF/);
   assert.match(currency.formatDisplayPrice(100, "EUR"), /100.*EUR/);
@@ -134,7 +138,7 @@ test("catalog prices retain their currency and mixed-currency totals are not cal
   assert.equal(currency.sumPricesInSameCurrency([]), null);
 });
 
-test("storefront pages use catalog data and payment request omits amount and Chariow ID", async () => {
+test("storefront checkout sends the Chariow ID and omits client-controlled amounts", async () => {
   const app = await readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8");
   const successPage = await readFile(new URL("../frontend/storefront/success.html", import.meta.url), "utf8");
   const htmlPages = await Promise.all([
@@ -151,12 +155,15 @@ test("storefront pages use catalog data and payment request omits amount and Cha
   assert.match(app, /catalogProducts\.find\(\(product\) => product\.id === id\)/);
   assert.match(app, /shop\.noResults/);
   assert.match(app, /catalog\.noProducts/);
-  assert.match(app, /produitId: product\.id, currency: CHECKOUT_CURRENCY/);
+  assert.match(app, /produitId: product\.chariowProductId/);
+  assert.doesNotMatch(app, /produitId: product\.id|currency: CHECKOUT_CURRENCY/);
   assert.match(app, /sumPricesInSameCurrency/);
   assert.match(app, /memoryCart/);
   assert.match(app, /cartStorageUnavailable/);
   assert.match(htmlPages[4], /maxlength="2"/);
-  assert.doesNotMatch(app.match(/JSON\.stringify\(\{[^}]+\}\)/)?.[0] || "", /price|chariowProductId/);
+  assert.doesNotMatch(app.match(/JSON\.stringify\(\{[^}]+\}\)/)?.[0] || "", /price|currency/);
+  assert.match(app, /data\.status === "completed"/);
+  assert.match(app, /ALREADY_PURCHASED/);
   assert.ok(htmlPages.every((html) => html.includes('assets/js/app.js')));
   assert.match(app, /data-catalog-retry/);
   assert.match(successPage, /Retour du paiement/);

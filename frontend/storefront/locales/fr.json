@@ -120,6 +120,7 @@
         "preparing": "Préparation du paiement...",
         "paymentFailed": "Le paiement n’a pas pu être préparé.",
         "paymentLinkMissing": "Lien de paiement introuvable.",
+        "alreadyPurchased": "Chariow indique que ce produit est déjà associé à cette adresse email. Consultez votre portail client Chariow.",
         "unknownError": "Une erreur est survenue. Veuillez réessayer.",
         "phone": "Téléphone",
         "phoneCountryCode": "Code pays du téléphone",

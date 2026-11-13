@@ -1,7 +1,7 @@
 const CATALOG_ENDPOINT = "/.netlify/functions/public-catalog";
-const SUPPORTED_CURRENCIES = new Set(["XOF", "EUR", "USD"]);
 const PRODUCT_FIELDS = new Set([
   "id",
+  "chariowProductId",
   "name",
   "description",
   "price",
@@ -27,23 +27,41 @@ const isFrenchText = (value) =>
     Object.keys(value).every((key) => key === "fr" || key === "en") &&
     typeof value.fr === "string");
 
+const isSafeImage = (image) => {
+  if (typeof image !== "string" || image.length > 2048) return false;
+  if (
+    image.startsWith("assets/") &&
+    !image.includes("\\") &&
+    !image.includes("?") &&
+    !image.includes("#") &&
+    image.split("/").every((part) => part && part !== "." && part !== "..")
+  ) {
+    return true;
+  }
+  try {
+    const url = new URL(image);
+    return url.protocol === "https:" && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+};
+
 export function isPublicProduct(product) {
   return isRecord(product) &&
     Object.keys(product).length === PRODUCT_FIELDS.size &&
     Object.keys(product).every((field) => PRODUCT_FIELDS.has(field)) &&
     typeof product.id === "string" &&
     product.id.length > 0 &&
+    typeof product.chariowProductId === "string" &&
+    /^prd_[A-Za-z0-9_-]+$/.test(product.chariowProductId) &&
     isFrenchText(product.name) &&
     isFrenchText(product.description) &&
-    Number.isSafeInteger(product.price) &&
+    typeof product.price === "number" &&
+    Number.isFinite(product.price) &&
     product.price > 0 &&
-    SUPPORTED_CURRENCIES.has(product.currency) &&
-    typeof product.image === "string" &&
-    product.image.startsWith("assets/") &&
-    !product.image.includes("\\") &&
-    !product.image.includes("?") &&
-    !product.image.includes("#") &&
-    product.image.split("/").every((part) => part && part !== "." && part !== "..") &&
+    typeof product.currency === "string" &&
+    /^[A-Z]{3}$/.test(product.currency) &&
+    isSafeImage(product.image) &&
     typeof product.category === "string";
 }
 

@@ -1739,6 +1739,162 @@ svg {
   font-variant-numeric: tabular-nums;
 }
 
+.chariow-analytics {
+  margin-top: var(--admin-space-8);
+  padding-top: var(--admin-space-6);
+  border-top: 1px solid var(--admin-line);
+}
+
+.chariow-analytics-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--admin-space-5);
+}
+
+.chariow-analytics-heading h3,
+.chariow-analytics-details h4 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.chariow-analytics-heading p {
+  margin: var(--admin-space-2) 0 0;
+  color: var(--admin-muted);
+}
+
+.chariow-period-control {
+  display: grid;
+  gap: var(--admin-space-1);
+  min-width: 190px;
+  color: var(--admin-muted);
+  font-size: .85rem;
+  font-weight: 650;
+}
+
+.chariow-period-control select {
+  min-height: var(--admin-control-height);
+  padding: 8px 36px 8px 12px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+}
+
+.chariow-analytics-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--admin-space-5);
+  margin: var(--admin-space-6) 0;
+  padding: var(--admin-space-4) 0;
+  border-top: 1px solid var(--admin-line);
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.chariow-analytics-summary > div {
+  min-width: 0;
+}
+
+.chariow-analytics-summary dt {
+  color: var(--admin-muted);
+  font-size: .85rem;
+}
+
+.chariow-analytics-summary dd {
+  margin: 5px 0 0;
+  font-size: 1.1rem;
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.chariow-revenue-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chariow-analytics-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  gap: var(--admin-space-8);
+}
+
+.chariow-analytics-details section {
+  min-width: 0;
+}
+
+.chariow-analytics-details h4 {
+  margin-bottom: var(--admin-space-4);
+}
+
+.chariow-sales-chart {
+  display: grid;
+  gap: 9px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 2px 6px 2px 0;
+}
+
+.chariow-sales-chart-row {
+  display: grid;
+  grid-template-columns: 52px minmax(48px, 1fr) 36px;
+  align-items: center;
+  gap: var(--admin-space-2);
+  color: var(--admin-muted);
+  font-size: .82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chariow-sales-chart-label {
+  white-space: nowrap;
+}
+
+.chariow-sales-chart-track {
+  display: block;
+  height: 9px;
+  overflow: hidden;
+  border-radius: var(--admin-radius-pill);
+  background: var(--admin-forest-soft);
+}
+
+.chariow-sales-chart-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--admin-forest);
+}
+
+.chariow-sales-chart-row strong {
+  color: var(--admin-ink);
+  text-align: right;
+}
+
+.chariow-product-breakdown {
+  display: grid;
+  gap: var(--admin-space-3);
+  margin: 0;
+  padding-left: 1.4rem;
+}
+
+.chariow-product-breakdown li {
+  padding-left: var(--admin-space-1);
+}
+
+.chariow-product-breakdown strong,
+.chariow-product-breakdown span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.chariow-product-breakdown span {
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: .88rem;
+}
+
 .chariow-cache-note {
   margin: var(--admin-space-4) 0 0;
   padding: 12px 14px;
@@ -2117,6 +2273,25 @@ svg {
   .chariow-stats,
   .chariow-detail-fields {
     grid-template-columns: 1fr;
+  }
+
+  .chariow-analytics-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chariow-period-control {
+    min-width: 0;
+  }
+
+  .chariow-analytics-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--admin-space-4);
+  }
+
+  .chariow-analytics-details {
+    grid-template-columns: 1fr;
+    gap: var(--admin-space-6);
   }
 
   .chariow-cache-note {

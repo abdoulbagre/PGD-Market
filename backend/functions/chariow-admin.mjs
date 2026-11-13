@@ -171,6 +171,9 @@ const projectSale = (sale) => {
   if (isRecord(sale.payment) &&
       (typeof sale.payment.status === "string" || sale.payment.status === null)) {
     result.payment = { status: sale.payment.status };
+    if (Object.hasOwn(sale.payment, "amount")) {
+      result.payment.amount = projectAmount(sale.payment.amount);
+    }
   }
   return result;
 };
@@ -281,8 +284,34 @@ const allowedQueryKeys = {
   store: new Set(["resource"]),
   products: new Set(["resource", "per_page", "cursor", "search"]),
   product: new Set(["resource", "productId"]),
-  sales: new Set(["resource", "per_page", "cursor", "search"]),
+  sales: new Set(["resource", "per_page", "cursor", "search", "status", "from", "to", "period"]),
   sale: new Set(["resource", "saleId"])
+};
+
+const SALE_STATUSES = new Set([
+  "initiated",
+  "awaiting_payment",
+  "completed",
+  "failed",
+  "abandoned",
+  "settled"
+]);
+const SALE_PERIODS = new Set([
+  "today",
+  "yesterday",
+  "last7days",
+  "last30days",
+  "thisWeek",
+  "lastWeek",
+  "thisMonth",
+  "lastMonth",
+  "thisYear",
+  "lastYear"
+]);
+const isCalendarDate = (value) => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 };
 
 const buildApiRequest = (url) => {
@@ -311,10 +340,20 @@ const buildApiRequest = (url) => {
   const perPage = getPageSize(url.searchParams.get("per_page"));
   const cursor = url.searchParams.get("cursor");
   const search = url.searchParams.get("search");
+  const status = url.searchParams.get("status");
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  const period = url.searchParams.get("period");
   if (
     perPage === null ||
     (cursor !== null && !isSafeCursor(cursor)) ||
-    (search !== null && search.length > MAX_SEARCH_LENGTH)
+    (search !== null && search.length > MAX_SEARCH_LENGTH) ||
+    (resource === "sales" && status !== null && !SALE_STATUSES.has(status)) ||
+    (resource === "sales" && from !== null && !isCalendarDate(from)) ||
+    (resource === "sales" && to !== null && !isCalendarDate(to)) ||
+    (resource === "sales" && period !== null && !SALE_PERIODS.has(period)) ||
+    (resource === "sales" && period !== null && (from !== null || to !== null)) ||
+    (resource === "sales" && from !== null && to !== null && to < from)
   ) {
     return null;
   }
@@ -322,6 +361,12 @@ const buildApiRequest = (url) => {
   const query = new URLSearchParams({ per_page: String(perPage) });
   if (cursor) query.set("cursor", cursor);
   if (search?.trim()) query.set("search", search.trim());
+  if (resource === "sales") {
+    if (status) query.set("status", status);
+    if (from) query.set("from", from);
+    if (to) query.set("to", to);
+    if (period) query.set("period", period);
+  }
   return {
     resource,
     perPage,

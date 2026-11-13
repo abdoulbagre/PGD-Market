@@ -250,8 +250,9 @@ export function createAdminCatalogController(fetchImpl = (...args) => fetch(...a
 }
 
 const chariowAdminEndpoint = "/.netlify/functions/chariow-admin";
-const pgdCatalogEndpoint = "/.netlify/functions/catalog";
 const CHARIOW_PAGE_SIZE = 20;
+const ANALYTICS_PAGE_SIZE = 100;
+const MAX_ANALYTICS_PAGES = 25;
 
 export class ChariowAdminError extends Error {
   constructor(status, message, code = "") {
@@ -311,6 +312,148 @@ export function createChariowAdminClient(fetchImpl = (...args) => fetch(...args)
   };
 }
 
+const analyticsBuckets = (period, now) => {
+  const today = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  ));
+  const isMonthly = period === "thisYear" || period === "lastYear";
+  let start;
+  let end;
+
+  if (period === "thisYear") {
+    start = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
+    end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  } else if (period === "lastYear") {
+    start = new Date(Date.UTC(today.getUTCFullYear() - 1, 0, 1));
+    end = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
+  } else if (period === "thisMonth") {
+    start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    end = new Date(today);
+  } else if (period === "lastMonth") {
+    start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+    end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
+  } else if (period === "today") {
+    start = new Date(today);
+    end = new Date(today);
+  } else if (period === "yesterday") {
+    start = new Date(today);
+    start.setUTCDate(start.getUTCDate() - 1);
+    end = new Date(start);
+  } else {
+    const days = period === "last7days" ? 7 : 30;
+    start = new Date(today);
+    start.setUTCDate(start.getUTCDate() - days + 1);
+    end = new Date(today);
+  }
+
+  const values = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const key = isMonthly
+      ? cursor.toISOString().slice(0, 7)
+      : cursor.toISOString().slice(0, 10);
+    const label = isMonthly
+      ? new Intl.DateTimeFormat("fr-FR", { month: "short", timeZone: "UTC" })
+        .format(cursor)
+      : new Intl.DateTimeFormat("fr-FR", {
+        day: "2-digit",
+        month: "short",
+        timeZone: "UTC"
+      }).format(cursor);
+    values.push({ key, label, count: 0 });
+    if (isMonthly) cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    else cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return { values, keyLength: isMonthly ? 7 : 10 };
+};
+
+export function summarizeChariowAnalytics({
+  products = [],
+  sales = [],
+  period = "last30days",
+  now = new Date()
+} = {}) {
+  const { values: buckets, keyLength } = analyticsBuckets(period, now);
+  const bucketByKey = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+  const seenSales = new Set();
+  const revenueByCurrency = new Map();
+  const productsById = new Map();
+  let salesCount = 0;
+
+  for (const sale of sales) {
+    if (
+      !isRecord(sale) ||
+      typeof sale.id !== "string" ||
+      !["completed", "settled"].includes(sale.status) ||
+      seenSales.has(sale.id)
+    ) {
+      continue;
+    }
+    seenSales.add(sale.id);
+    salesCount += 1;
+
+    if (typeof sale.created_at === "string") {
+      const key = sale.created_at.slice(0, keyLength);
+      const bucket = bucketByKey.get(key);
+      if (bucket) bucket.count += 1;
+    }
+
+    const productId = isRecord(sale.product) && typeof sale.product.id === "string"
+      ? sale.product.id
+      : "";
+    const productName = isRecord(sale.product) && typeof sale.product.name === "string"
+      ? sale.product.name
+      : "Produit non renseigné";
+    const productKey = productId || productName;
+    const product = productsById.get(productKey) || {
+      id: productId,
+      name: productName,
+      count: 0,
+      revenue: new Map()
+    };
+    product.count += 1;
+    productsById.set(productKey, product);
+
+    const amount = sale.payment?.amount;
+    const currency = typeof amount?.currency === "string"
+      ? amount.currency.toUpperCase()
+      : "";
+    if (
+      sale.payment?.status === "success" &&
+      Number.isFinite(amount?.value) &&
+      amount.value > 0 &&
+      /^[A-Z]{3}$/.test(currency)
+    ) {
+      revenueByCurrency.set(
+        currency,
+        (revenueByCurrency.get(currency) || 0) + amount.value
+      );
+      product.revenue.set(currency, (product.revenue.get(currency) || 0) + amount.value);
+    }
+  }
+
+  return {
+    totalProducts: products.length,
+    publishedProducts: products.filter((product) => product?.status === "published").length,
+    salesCount,
+    revenueByCurrency: [...revenueByCurrency]
+      .map(([currency, amount]) => ({ currency, amount }))
+      .sort((left, right) => left.currency.localeCompare(right.currency)),
+    salesByBucket: buckets,
+    topProducts: [...productsById.values()]
+      .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
+      .slice(0, 5)
+      .map((product) => ({
+        ...product,
+        revenue: [...product.revenue]
+          .map(([currency, amount]) => ({ currency, amount }))
+          .sort((left, right) => left.currency.localeCompare(right.currency))
+      }))
+  };
+}
+
 export function createChariowAdminUI({
   document: documentRef,
   fetchImpl = (...args) => fetch(...args),
@@ -334,6 +477,17 @@ export function createChariowAdminUI({
   const totalRatings = documentRef.querySelector("[data-chariow-total-ratings]");
   const positiveRating = documentRef.querySelector("[data-chariow-rating-positive]");
   const updatedTime = documentRef.querySelector("[data-chariow-updated]");
+  const analyticsPeriod = documentRef.querySelector("[data-chariow-analytics-period]");
+  const analyticsStatus = documentRef.querySelector("[data-chariow-analytics-status]");
+  const analyticsResults = documentRef.querySelector("[data-chariow-analytics-results]");
+  const totalProducts = documentRef.querySelector("[data-chariow-total-products]");
+  const publishedProducts = documentRef.querySelector("[data-chariow-published-products]");
+  const salesCount = documentRef.querySelector("[data-chariow-sales-count]");
+  const revenueList = documentRef.querySelector("[data-chariow-revenue]");
+  const salesChart = documentRef.querySelector("[data-chariow-sales-chart]");
+  const salesChartEmpty = documentRef.querySelector("[data-chariow-sales-chart-empty]");
+  const productBreakdown = documentRef.querySelector("[data-chariow-product-breakdown]");
+  const productBreakdownEmpty = documentRef.querySelector("[data-chariow-product-breakdown-empty]");
   const searchInput = documentRef.querySelector("[data-chariow-search]");
   const salesSearchInput = documentRef.querySelector("[data-chariow-sales-search]");
   const productsStatus = documentRef.querySelector("[data-chariow-products-status]");
@@ -357,14 +511,16 @@ export function createChariowAdminUI({
   let salesLoaded = false;
   let activeTab = "overview";
   let overviewRequest = 0;
-  let pgdProducts = null;
-  let pgdCatalogError = "";
-  let pgdCatalogRequest = 0;
-  let pgdCatalogPromise = null;
   let pageInfo = null;
   let productsRequest = 0;
   let salesPageInfo = null;
   let salesRequest = 0;
+  let analyticsLoaded = false;
+  let analyticsPeriodLoaded = "";
+  let analyticsRequest = 0;
+  let analyticsPromise = null;
+  let analyticsPeriodRequested = "";
+  let overviewPromise = null;
   let searchTimer = null;
   let salesSearchTimer = null;
   let detailRequest = 0;
@@ -439,6 +595,14 @@ export function createChariowAdminUI({
     }).format(date);
   };
 
+  const analyticsPriceLabel = (amount) =>
+    new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: amount.currency,
+      currencyDisplay: "code",
+      maximumFractionDigits: 2
+    }).format(amount.amount);
+
   const productStatusLabel = (status) => ({
     published: "Publié",
     draft: "Brouillon",
@@ -509,77 +673,218 @@ export function createChariowAdminUI({
     }).format(new Date());
   }
 
-  async function loadOverview(force = false) {
-    if (overviewLoaded && !force) return;
+  async function loadAnalyticsPages(resource, filters, requestId) {
+    const items = [];
+    const seenCursors = new Set();
+    let cursor = "";
+
+    for (let pageNumber = 0; pageNumber < MAX_ANALYTICS_PAGES; pageNumber += 1) {
+      if (requestId !== analyticsRequest) return null;
+      const params = {
+        resource,
+        per_page: String(ANALYTICS_PAGE_SIZE),
+        ...filters
+      };
+      if (cursor) params.cursor = cursor;
+      const result = await client.request(params);
+      if (requestId !== analyticsRequest) return null;
+      if (
+        !Array.isArray(result.data) ||
+        result.data.length > ANALYTICS_PAGE_SIZE ||
+        !isRecord(result.pagination) ||
+        typeof result.pagination.has_more_pages !== "boolean"
+      ) {
+        throw new ChariowAdminError(502, `Les données ${resource} Chariow sont incomplètes.`);
+      }
+      items.push(...result.data);
+      if (!result.pagination.has_more_pages) return items;
+
+      const nextCursor = result.pagination.next_cursor;
+      if (
+        typeof nextCursor !== "string" ||
+        !nextCursor ||
+        seenCursors.has(nextCursor)
+      ) {
+        throw new ChariowAdminError(502, `La pagination ${resource} Chariow est invalide.`);
+      }
+      seenCursors.add(nextCursor);
+      cursor = nextCursor;
+    }
+
+    throw new ChariowAdminError(
+      502,
+      `Les statistiques dépassent la limite de pages consultables (${MAX_ANALYTICS_PAGES}).`
+    );
+  }
+
+  function renderAnalytics(summary) {
+    totalProducts.textContent = formatCount(summary.totalProducts);
+    publishedProducts.textContent = formatCount(summary.publishedProducts);
+    salesCount.textContent = formatCount(summary.salesCount);
+    revenueList.replaceChildren();
+    if (summary.revenueByCurrency.length) {
+      summary.revenueByCurrency.forEach((revenue) => {
+        const item = documentRef.createElement("li");
+        item.textContent = analyticsPriceLabel(revenue);
+        revenueList.append(item);
+      });
+    } else {
+      const item = documentRef.createElement("li");
+      item.textContent = "Aucun montant payé disponible";
+      revenueList.append(item);
+    }
+
+    const maxSales = Math.max(0, ...summary.salesByBucket.map(({ count }) => count));
+    salesChart.replaceChildren();
+    summary.salesByBucket.forEach((bucket) => {
+      const row = documentRef.createElement("div");
+      row.className = "chariow-sales-chart-row";
+      row.setAttribute("role", "listitem");
+      const label = documentRef.createElement("span");
+      label.className = "chariow-sales-chart-label";
+      label.textContent = bucket.label;
+      const track = documentRef.createElement("span");
+      track.className = "chariow-sales-chart-track";
+      track.setAttribute("aria-hidden", "true");
+      const fill = documentRef.createElement("span");
+      fill.className = "chariow-sales-chart-fill";
+      fill.style.width = maxSales ? `${bucket.count / maxSales * 100}%` : "0%";
+      track.append(fill);
+      const count = documentRef.createElement("strong");
+      count.textContent = formatCount(bucket.count);
+      row.append(label, track, count);
+      salesChart.append(row);
+    });
+    const hasChartSales = summary.salesByBucket.some(({ count }) => count > 0);
+    salesChart.hidden = !hasChartSales;
+    salesChartEmpty.hidden = hasChartSales;
+    salesChartEmpty.textContent = summary.salesCount
+      ? "Les dates des ventes ne permettent pas de tracer cette période."
+      : "Aucune vente réussie sur cette période.";
+
+    productBreakdown.replaceChildren();
+    summary.topProducts.forEach((product) => {
+      const item = documentRef.createElement("li");
+      const name = documentRef.createElement("strong");
+      name.textContent = product.name;
+      const count = documentRef.createElement("span");
+      count.textContent = `${formatCount(product.count)} vente${product.count === 1 ? "" : "s"}`;
+      const amount = documentRef.createElement("span");
+      amount.textContent = product.revenue.length
+        ? product.revenue.map(analyticsPriceLabel).join(" · ")
+        : "Montant payé non disponible";
+      item.append(name, count, amount);
+      productBreakdown.append(item);
+    });
+    productBreakdownEmpty.hidden = summary.topProducts.length > 0;
+    productBreakdownEmpty.textContent = "Aucune vente réussie sur cette période.";
+    analyticsResults.hidden = false;
+  }
+
+  function loadAnalytics(period, force = false) {
+    if (
+      analyticsLoaded &&
+      analyticsPeriodLoaded === period &&
+      !force
+    ) {
+      return Promise.resolve(true);
+    }
+    if (analyticsPromise && analyticsPeriodRequested === period && !force) {
+      return analyticsPromise;
+    }
+
+    const requestId = ++analyticsRequest;
+    analyticsLoaded = false;
+    analyticsResults.hidden = true;
+    setStatus(analyticsStatus, "Chargement des statistiques Chariow…", "loading");
+    const filters = { period };
+
+    const pending = (async () => {
+      try {
+        const [products, completedSales, settledSales] = await Promise.all([
+          loadAnalyticsPages("products", {}, requestId),
+          loadAnalyticsPages("sales", { status: "completed", ...filters }, requestId),
+          loadAnalyticsPages("sales", { status: "settled", ...filters }, requestId)
+        ]);
+        if (requestId !== analyticsRequest) return false;
+        if (!products || !completedSales || !settledSales) return false;
+
+        const summary = summarizeChariowAnalytics({
+          products,
+          sales: [...completedSales, ...settledSales],
+          period
+        });
+        renderAnalytics(summary);
+        analyticsLoaded = true;
+        analyticsPeriodLoaded = period;
+        setStatus(analyticsStatus, "");
+        return true;
+      } catch (error) {
+        if (requestId !== analyticsRequest) return false;
+        if (error.status === 401) {
+          onSessionExpired();
+          return false;
+        }
+        analyticsResults.hidden = true;
+        setStatus(
+          analyticsStatus,
+          error.message || "Impossible de charger les statistiques Chariow.",
+          "error"
+        );
+        return false;
+      }
+    })();
+    analyticsPromise = pending;
+    analyticsPeriodRequested = period;
+    const clearAnalyticsPromise = () => {
+      if (requestId === analyticsRequest) {
+        analyticsPromise = null;
+        analyticsPeriodRequested = "";
+      }
+    };
+    void pending.then(clearAnalyticsPromise, clearAnalyticsPromise);
+    return pending;
+  }
+
+  function loadOverview(force = false) {
+    if (overviewLoaded && analyticsLoaded &&
+        analyticsPeriodLoaded === analyticsPeriod.value && !force) {
+      return Promise.resolve();
+    }
+    if (overviewPromise && !force) return overviewPromise;
     const requestId = ++overviewRequest;
     setStatus(overviewStatus, overviewLoaded ? "Actualisation des données…" : "Chargement de la boutique…", "loading");
     refreshButton.disabled = true;
-    try {
-      const result = await client.request({ resource: "store" });
-      if (requestId !== overviewRequest) return;
-      if (!isRecord(result.data) || typeof result.data.name !== "string") {
-        throw new ChariowAdminError(502, "Les informations de boutique reçues sont incomplètes.");
-      }
-      renderStore(result.data);
-      overviewLoaded = true;
-      setStatus(overviewStatus, "");
-    } catch (error) {
-      if (requestId !== overviewRequest) return;
-      if (error.status === 401) {
-        onSessionExpired();
-        return;
-      }
-      setStatus(overviewStatus, error.message || "Impossible de charger la boutique Chariow.", "error");
-    } finally {
-      if (requestId === overviewRequest) refreshButton.disabled = false;
-    }
-  }
-
-  function resetPgdCatalog() {
-    pgdCatalogRequest += 1;
-    pgdCatalogPromise = null;
-    pgdProducts = null;
-    pgdCatalogError = "";
-  }
-
-  function loadPgdCatalog() {
-    if (pgdProducts !== null || pgdCatalogError) return;
-    if (pgdCatalogPromise) return pgdCatalogPromise;
-    const requestId = pgdCatalogRequest;
-    pgdCatalogPromise = (async () => {
+    const pending = (async () => {
       try {
-        const response = await fetchImpl(pgdCatalogEndpoint, {
-          method: "GET",
-          credentials: "same-origin",
-          cache: "no-store",
-          headers: { Accept: "application/json" }
-        });
-        if (response.status === 401) {
+        const [result] = await Promise.all([
+          client.request({ resource: "store" }),
+          loadAnalytics(analyticsPeriod.value, force)
+        ]);
+        if (requestId !== overviewRequest) return;
+        if (!isRecord(result.data) || typeof result.data.name !== "string") {
+          throw new ChariowAdminError(502, "Les informations de boutique reçues sont incomplètes.");
+        }
+        renderStore(result.data);
+        overviewLoaded = true;
+        setStatus(overviewStatus, "");
+      } catch (error) {
+        if (requestId !== overviewRequest) return;
+        if (error.status === 401) {
           onSessionExpired();
           return;
         }
-        if (!response.ok) {
-          throw new Error(response.status === 403
-            ? "Le catalogue PGD n’est pas accessible dans ce contexte."
-            : "Le catalogue PGD n’a pas pu être lu.");
-        }
-        const result = await response.json();
-        if (!isRecord(result) || !Array.isArray(result.products)) {
-          throw new Error("La réponse du catalogue PGD est invalide.");
-        }
-        if (requestId !== pgdCatalogRequest) return;
-        pgdProducts = result.products.filter((product) =>
-          isRecord(product) && typeof product.chariowProductId === "string"
-        );
-      } catch (error) {
-        if (requestId === pgdCatalogRequest) {
-          pgdCatalogError = error.message || "La comparaison avec le catalogue PGD est indisponible.";
-        }
+        setStatus(overviewStatus, error.message || "Impossible de charger la boutique Chariow.", "error");
       } finally {
-        if (requestId === pgdCatalogRequest) pgdCatalogPromise = null;
+        if (requestId === overviewRequest) refreshButton.disabled = false;
       }
     })();
-    return pgdCatalogPromise;
+    overviewPromise = pending;
+    const clearOverviewPromise = () => {
+      if (requestId === overviewRequest) overviewPromise = null;
+    };
+    void pending.then(clearOverviewPromise, clearOverviewPromise);
+    return pending;
   }
 
   function createProductImage(product, compact = false) {
@@ -601,80 +906,6 @@ export function createChariowAdminUI({
       image.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23f8f7f1'/%3E%3Cpath d='M18 45h28M22 39l7-9 5 6 4-5 7 8' fill='none' stroke='%2352645a' stroke-width='2'/%3E%3C/svg%3E";
     }
     return image;
-  }
-
-  function localProductFor(chariowProductId) {
-    if (!Array.isArray(pgdProducts)) return [];
-    return pgdProducts.filter((product) =>
-      product.chariowProductId === chariowProductId
-    );
-  }
-
-  function makeMatchBlock(product) {
-    const match = documentRef.createElement("div");
-    match.className = "chariow-product-match";
-    const title = documentRef.createElement("strong");
-    const description = documentRef.createElement("p");
-    const badge = documentRef.createElement("span");
-    badge.className = "chariow-match-state";
-
-    if (pgdCatalogError) {
-      title.textContent = "Comparaison PGD indisponible";
-      description.textContent = pgdCatalogError;
-      badge.textContent = "Non vérifiée";
-    } else {
-      const matches = localProductFor(product.id);
-      if (matches.length > 1) {
-        title.textContent = "Correspondance PGD ambiguë";
-        description.textContent = `${matches.length} produits PGD utilisent cet identifiant Chariow.`;
-        badge.textContent = "À vérifier";
-        badge.classList.add("is-different");
-      } else if (matches.length === 0) {
-        title.textContent = "Aucun lien dans le catalogue PGD";
-        description.textContent = "Aucun produit actif du catalogue PGD ne référence cet identifiant.";
-        badge.textContent = "Non lié";
-        badge.classList.add("is-missing");
-      } else {
-        const pgdProduct = matches[0];
-        const chariowPrice = safePrice(product);
-        const samePrice = chariowPrice && typeof chariowPrice.value === "number" &&
-          pgdProduct.price === chariowPrice.value;
-        const sameCurrency = chariowPrice &&
-          typeof chariowPrice.currency === "string" &&
-          pgdProduct.currency === chariowPrice.currency;
-        const pgdName = typeof pgdProduct.name === "string"
-          ? pgdProduct.name
-          : pgdProduct.name?.fr;
-        title.textContent = pgdName || "Produit PGD lié";
-        const pgdPrice = typeof pgdProduct.price === "number" &&
-          Number.isFinite(pgdProduct.price)
-          ? new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(pgdProduct.price)
-          : "Prix non renseigné";
-        description.textContent =
-          `ID PGD : ${pgdProduct.id} · ${pgdPrice} ${pgdProduct.currency || ""}`.trim();
-        if (
-          !chariowPrice ||
-          typeof chariowPrice.value !== "number" ||
-          typeof chariowPrice.currency !== "string" ||
-          typeof pgdProduct.price !== "number" ||
-          typeof pgdProduct.currency !== "string"
-        ) {
-          badge.textContent = "Comparaison incomplète";
-        } else if (samePrice && sameCurrency) {
-          badge.textContent = "Prix et devise identiques";
-          badge.classList.add("is-match");
-        } else if (samePrice || sameCurrency) {
-          badge.textContent = "Écart de prix ou devise";
-          badge.classList.add("is-different");
-        } else {
-          badge.textContent = chariowPrice ? "Écart de prix et devise" : "Comparaison impossible";
-          if (chariowPrice) badge.classList.add("is-different");
-        }
-      }
-    }
-
-    match.append(title, description, badge);
-    return match;
   }
 
   function renderProducts(products) {
@@ -718,14 +949,13 @@ export function createChariowAdminUI({
         meta.append(stock);
       }
 
-      const match = makeMatchBlock(product);
       const detailsButton = documentRef.createElement("button");
       detailsButton.className = "button button-outline chariow-detail-button";
       detailsButton.type = "button";
       detailsButton.textContent = "Voir les détails";
       detailsButton.dataset.chariowDetail = product.id;
       detailsButton.setAttribute("aria-label", `Voir les détails de ${name.textContent}`);
-      card.append(identity, meta, match, detailsButton);
+      card.append(identity, meta, detailsButton);
       productsList.append(card);
     });
   }
@@ -748,10 +978,7 @@ export function createChariowAdminUI({
     if (search) params.search = search;
 
     try {
-      const [result] = await Promise.all([
-        client.request(params),
-        loadPgdCatalog()
-      ]);
+      const result = await client.request(params);
       if (requestId !== productsRequest) return;
       if (
         !Array.isArray(result.data) ||
@@ -766,9 +993,7 @@ export function createChariowAdminUI({
       previousButton.disabled = !pageInfo.prev_cursor;
       nextButton.disabled = !pageInfo.next_cursor;
       pageStatus.textContent = `${result.data.length} produit${result.data.length === 1 ? "" : "s"} sur cette page${pageInfo.has_more_pages ? " · d’autres pages sont disponibles" : ""}`;
-      setStatus(productsStatus, pgdCatalogError
-        ? `Comparaison non disponible : ${pgdCatalogError}`
-        : "");
+      setStatus(productsStatus, "");
     } catch (error) {
       if (requestId !== productsRequest) return;
       if (error.status === 401) {
@@ -942,10 +1167,9 @@ export function createChariowAdminUI({
       name.textContent = typeof product.name === "string" ? product.name : "Produit sans nom";
       const type = documentRef.createElement("p");
       type.textContent = product.type || "Type non renseigné";
-      const comparison = makeMatchBlock(product);
       identity.append(name, type);
       summary.append(identity);
-      detailBody.replaceChildren(summary, renderDetailFields(product), comparison);
+      detailBody.replaceChildren(summary, renderDetailFields(product));
     } catch (error) {
       if (requestId !== detailRequest) return;
       if (error.status === 401) {
@@ -1067,12 +1291,16 @@ export function createChariowAdminUI({
     });
   });
 
+  analyticsPeriod.addEventListener("change", () => {
+    analyticsLoaded = false;
+    void loadAnalytics(analyticsPeriod.value, true);
+  });
+
   refreshButton.addEventListener("click", () => {
     if (activeTab === "overview") void loadOverview(true);
     else if (activeTab === "products") {
       productsLoaded = false;
       pageInfo = null;
-      resetPgdCatalog();
       void loadProducts({ search: searchInput.value.trim(), force: true });
     } else {
       salesLoaded = false;
@@ -1157,9 +1385,14 @@ export function createChariowAdminUI({
     clear() {
       overviewLoaded = false;
       overviewRequest += 1;
+      analyticsLoaded = false;
+      analyticsPeriodLoaded = "";
+      analyticsRequest += 1;
+      analyticsPromise = null;
+      analyticsPeriodRequested = "";
+      overviewPromise = null;
       productsLoaded = false;
       salesLoaded = false;
-      resetPgdCatalog();
       pageInfo = null;
       salesPageInfo = null;
       productsRequest += 1;
@@ -1175,8 +1408,19 @@ export function createChariowAdminUI({
       storeDescription.textContent = "";
       clearImage(storeLogo);
       setStatus(overviewStatus, "");
+      setStatus(analyticsStatus, "");
       setStatus(productsStatus, "");
       setStatus(salesStatus, "");
+      analyticsResults.hidden = true;
+      salesChart.hidden = false;
+      salesChartEmpty.hidden = true;
+      productBreakdownEmpty.hidden = true;
+      totalProducts.textContent = "—";
+      publishedProducts.textContent = "—";
+      salesCount.textContent = "—";
+      revenueList.replaceChildren();
+      salesChart.replaceChildren();
+      productBreakdown.replaceChildren();
       productsList.replaceChildren();
       productsList.setAttribute("aria-busy", "false");
       salesList.replaceChildren();
@@ -1248,7 +1492,7 @@ function initializeAdminUI() {
   let editingProduct = null;
   let editingEtag = "";
   let editBlocked = false;
-  let currentView = "products";
+  let currentView = "chariow";
   let productFilter = "all";
   let confirmationResolve = null;
   let confirmationReturnFocus = null;
@@ -1311,11 +1555,8 @@ function initializeAdminUI() {
       renderArchives();
     },
     onAuthenticate(session) {
-      showView("products", { loadData: false });
-      return Promise.all([
-        refreshProducts(session),
-        refreshArchives(session)
-      ]);
+      showView("chariow");
+      return Promise.resolve(session);
     }
   });
 
@@ -1377,7 +1618,7 @@ function initializeAdminUI() {
     catalogOverviewStats.hidden = name === "chariow";
     if (name === "chariow") {
       overviewTitle.textContent = "Chariow";
-      overviewDescription.textContent = "Consultez les informations de la boutique et ses produits sans modifier les données Chariow.";
+      overviewDescription.textContent = "Consultez les produits, ventes et statistiques issus de Chariow.";
     } else if (name === "archives") {
       overviewTitle.textContent = "Archives du catalogue";
       overviewDescription.textContent = "Restaurez un produit ou supprimez-le définitivement.";
