@@ -56,6 +56,7 @@ const projectPublicProduct = (product) => {
   if (
     !product ||
     typeof product.id !== "string" ||
+    !/^prd_[A-Za-z0-9_-]{1,120}$/.test(product.id) ||
     product.status !== "published" ||
     !CHECKOUT_SUPPORTED_TYPES.has(product.type) ||
     product.has_variant_pricing === true ||
@@ -89,8 +90,8 @@ const projectPublicProduct = (product) => {
     "assets/Background/logo-bronze.png";
 
   return {
-    id: legacyProduct?.id || product.id,
-    chariowProductId: product.id,
+    id: product.id,
+    legacyPgdId: legacyProduct?.id || null,
     name: product.name,
     description: typeof product.description === "string" ? product.description : "",
     price: price.value,

@@ -1,7 +1,7 @@
 const CATALOG_ENDPOINT = "/.netlify/functions/public-catalog";
 const PRODUCT_FIELDS = new Set([
   "id",
-  "chariowProductId",
+  "legacyPgdId",
   "name",
   "description",
   "price",
@@ -20,6 +20,25 @@ export class CatalogLoadError extends Error {
 
 const isRecord = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
+
+const CHARIOW_PRODUCT_ID = /^prd_[A-Za-z0-9_-]{1,120}$/;
+const LEGACY_PGD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function findCatalogProduct(products, id) {
+  if (!Array.isArray(products) || typeof id !== "string") return null;
+  return products.find((product) => product.id === id) ||
+    products.find((product) => product.legacyPgdId === id) ||
+    null;
+}
+
+export function migrateLegacyProductIds(ids, products) {
+  const legacyIds = new Map(
+    products
+      .filter((product) => typeof product.legacyPgdId === "string")
+      .map((product) => [product.legacyPgdId, product.id])
+  );
+  return [...new Set(ids.map((id) => legacyIds.get(id) || id))];
+}
 
 export function plainTextDescription(value) {
   if (typeof value !== "string") return "";
@@ -70,9 +89,10 @@ export function isPublicProduct(product) {
     Object.keys(product).length === PRODUCT_FIELDS.size &&
     Object.keys(product).every((field) => PRODUCT_FIELDS.has(field)) &&
     typeof product.id === "string" &&
-    product.id.length > 0 &&
-    typeof product.chariowProductId === "string" &&
-    /^prd_[A-Za-z0-9_-]+$/.test(product.chariowProductId) &&
+    CHARIOW_PRODUCT_ID.test(product.id) &&
+    (product.legacyPgdId === null ||
+      typeof product.legacyPgdId === "string" &&
+        LEGACY_PGD_ID.test(product.legacyPgdId)) &&
     isFrenchText(product.name) &&
     isFrenchText(product.description) &&
     typeof product.price === "number" &&

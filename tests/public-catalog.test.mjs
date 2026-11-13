@@ -33,7 +33,7 @@ const handlerFor = (products, options = {}) => createPublicCatalogHandler({
   env: { CHARIOW_ADMIN_API_KEY: "server-only-key", ...options.env }
 });
 
-test("public GET projects Chariow data and preserves the legacy ID for existing products", async () => {
+test("public GET keeps the Chariow ID canonical and returns exact legacy mappings separately", async () => {
   const source = chariowProduct();
   const response = await handlerFor([source])(request());
   const body = await response.json();
@@ -43,8 +43,8 @@ test("public GET projects Chariow data and preserves the legacy ID for existing 
     success: true,
     count: 1,
     products: [{
-      id: "550e8400-e29b-41d4-a716-446655440000",
-      chariowProductId: firstProductId,
+      id: firstProductId,
+      legacyPgdId: "550e8400-e29b-41d4-a716-446655440000",
       name: source.name,
       description: source.description,
       price: 4200.5,
@@ -69,7 +69,8 @@ test("public catalog selects the current price and falls back to the local image
   const response = await handlerFor([source])(request());
   const body = await response.json();
 
-  assert.equal(body.products[0].id, "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90");
+  assert.equal(body.products[0].id, secondProductId);
+  assert.equal(body.products[0].legacyPgdId, "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90");
   assert.equal(body.products[0].price, 15.75);
   assert.equal(body.products[0].currency, "EUR");
   assert.equal(body.products[0].image, "assets/images/2.jpg");
@@ -79,6 +80,7 @@ test("public catalog excludes unsupported products but includes new Chariow prod
   const newProduct = chariowProduct({ id: "prd_new_product" });
   const response = await handlerFor([
     chariowProduct({ status: "draft" }),
+    chariowProduct({ id: "550e8400-e29b-41d4-a716-446655440000" }),
     chariowProduct({ id: secondProductId, has_variant_pricing: true }),
     chariowProduct({ id: secondProductId, is_free: true }),
     chariowProduct({ id: secondProductId, type: "service" }),
@@ -92,7 +94,7 @@ test("public catalog excludes unsupported products but includes new Chariow prod
   assert.equal(body.count, 1);
   assert.deepEqual(body.products[0], {
     id: "prd_new_product",
-    chariowProductId: "prd_new_product",
+    legacyPgdId: null,
     name: newProduct.name,
     description: newProduct.description,
     price: 4200.5,

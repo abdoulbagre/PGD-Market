@@ -1,4 +1,9 @@
-import { createCatalogClient, plainTextDescription } from "./catalog.js";
+import {
+  createCatalogClient,
+  findCatalogProduct,
+  migrateLegacyProductIds,
+  plainTextDescription
+} from "./catalog.js";
 import { initFrench, t } from "./french.js";
 import {
   formatDisplayPrice,
@@ -447,6 +452,15 @@ function setupProduct(product) {
   bindCartButtons(target);
   bindProductSticky(target);
 }
+function productFromUrlId(id) {
+  const product = findCatalogProduct(catalogProducts, id);
+  if (product && product.id !== id) {
+    const url = new URL(location.href);
+    url.searchParams.set("id", product.id);
+    history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+  return product;
+}
 function mapPaymentError(error) {
   const message = String(error?.message || "");
   if (message === "ALREADY_PURCHASED") return t("checkout.alreadyPurchased");
@@ -545,7 +559,7 @@ function setupCheckout(product) {
           email,
           phone,
           phoneCountryCode,
-          produitId: product.chariowProductId
+          produitId: product.id
         })
       });
       let data;
@@ -694,6 +708,15 @@ async function renderPage({ retryCatalog = false } = {}) {
   }
 
   if (sequence !== renderSequence) return;
+  const cartIds = readCart();
+  const migratedCartIds = migrateLegacyProductIds(cartIds, catalogProducts);
+  if (
+    migratedCartIds.length !== cartIds.length ||
+    migratedCartIds.some((id, index) => id !== cartIds[index])
+  ) {
+    writeCart(migratedCartIds);
+  }
+  updateCartCount();
   switch (page) {
     case "home":
       setupHome();
@@ -703,12 +726,12 @@ async function renderPage({ retryCatalog = false } = {}) {
       break;
     case "product": {
       const id = new URLSearchParams(location.search).get("id");
-      setupProduct(catalogProducts.find((product) => product.id === id));
+      setupProduct(productFromUrlId(id));
       break;
     }
     case "checkout": {
       const id = new URLSearchParams(location.search).get("id");
-      setupCheckout(catalogProducts.find((product) => product.id === id));
+      setupCheckout(productFromUrlId(id));
       break;
     }
     case "cart":

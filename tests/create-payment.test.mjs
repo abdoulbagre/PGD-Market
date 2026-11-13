@@ -97,14 +97,18 @@ test("checkout validates a Chariow product server-side and sends its ID without 
   assert.equal("chariowProductId" in chariowPayload, false);
 });
 
-test("malformed Chariow IDs are rejected before any API request", async () => {
-  const fixture = createHandler();
-  const response = await fixture.handler(event({ produitId: "not-a-chariow-id" }));
+test("malformed and legacy PGD IDs are rejected before any API request", async (t) => {
+  for (const id of ["not-a-chariow-id", "550e8400-e29b-41d4-a716-446655440000"]) {
+    await t.test(id, async () => {
+      const fixture = createHandler();
+      const response = await fixture.handler(event({ produitId: id }));
 
-  assert.equal(response.statusCode, 400);
-  assert.equal(JSON.parse(response.body).code, "INVALID_CHECKOUT_DATA");
-  assert.equal(fixture.productRequests.length, 0);
-  assert.equal(fixture.checkoutRequests.length, 0);
+      assert.equal(response.statusCode, 400);
+      assert.equal(JSON.parse(response.body).code, "INVALID_CHECKOUT_DATA");
+      assert.equal(fixture.productRequests.length, 0);
+      assert.equal(fixture.checkoutRequests.length, 0);
+    });
+  }
 });
 
 test("unknown Chariow products are rejected without starting checkout", async () => {

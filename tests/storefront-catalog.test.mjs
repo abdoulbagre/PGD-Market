@@ -8,14 +8,21 @@ const loadBrowserModule = async (path) => {
   return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 };
 
-const [{ CatalogLoadError, createCatalogClient, isPublicProduct, plainTextDescription }, currency] = await Promise.all([
+const [{
+  CatalogLoadError,
+  createCatalogClient,
+  findCatalogProduct,
+  isPublicProduct,
+  migrateLegacyProductIds,
+  plainTextDescription
+}, currency] = await Promise.all([
   loadBrowserModule("../frontend/storefront/assets/js/catalog.js"),
   loadBrowserModule("../frontend/storefront/assets/js/currency.js")
 ]);
 
 const product = (overrides = {}) => ({
-  id: "550e8400-e29b-41d4-a716-446655440000",
-  chariowProductId: "prd_5lj7fz8k",
+  id: "prd_5lj7fz8k",
+  legacyPgdId: "550e8400-e29b-41d4-a716-446655440000",
   name: "Produit FR",
   description: "Description FR<br>suite",
   price: 4200,
@@ -43,13 +50,38 @@ test("public catalog validates Chariow IDs, real prices, currencies, and safe im
       en: "Legacy English description"
     }
   })), true);
-  assert.equal(isPublicProduct(product({ chariowProductId: "invalid" })), false);
+  assert.equal(isPublicProduct(product({ id: "invalid" })), false);
+  assert.equal(isPublicProduct(product({ id: "550e8400-e29b-41d4-a716-446655440000" })), false);
+  assert.equal(isPublicProduct(product({ legacyPgdId: "not-a-uuid" })), false);
+  assert.equal(isPublicProduct(product({ legacyPgdId: null })), true);
   assert.equal(isPublicProduct(product({ files: ["delivery.pdf"] })), false);
   assert.equal(isPublicProduct(product({ price: "4200" })), false);
   assert.equal(isPublicProduct(product({ price: 4200.5 })), true);
   assert.equal(isPublicProduct(product({ currency: "GHS" })), true);
   assert.equal(isPublicProduct(product({ image: "http://cdn.example/image.jpg" })), false);
   assert.equal(isPublicProduct(product({ image: "https://cdn.example/image.jpg" })), true);
+});
+
+test("legacy product references migrate only through exact catalog mappings", () => {
+  const secondProduct = product({
+    id: "prd_ln1r0vbr",
+    legacyPgdId: "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90"
+  });
+  const catalog = [product(), secondProduct];
+  const unknownLegacyId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+  assert.equal(findCatalogProduct(catalog, "prd_5lj7fz8k"), catalog[0]);
+  assert.equal(findCatalogProduct(catalog, "550e8400-e29b-41d4-a716-446655440000"), catalog[0]);
+  assert.equal(findCatalogProduct(catalog, unknownLegacyId), null);
+  assert.deepEqual(
+    migrateLegacyProductIds([
+      "550e8400-e29b-41d4-a716-446655440000",
+      "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90",
+      unknownLegacyId,
+      "prd_5lj7fz8k"
+    ], catalog),
+    ["prd_5lj7fz8k", "prd_ln1r0vbr", unknownLegacyId]
+  );
 });
 
 test("Chariow HTML descriptions become readable text without executable markup", () => {
@@ -104,7 +136,7 @@ test("catalog failures distinguish network, HTTP, invalid JSON, and invalid data
     ["invalid JSON", async () => new Response("{", { status: 200 }), "invalid-json"],
     ["invalid projection", async () => new Response(JSON.stringify({
       success: true,
-      products: [product({ chariowProductId: "invalid" })],
+      products: [product({ id: "invalid" })],
       count: 1
     }), { status: 200 }), "invalid-data"]
   ];
@@ -162,11 +194,18 @@ test("storefront checkout sends the Chariow ID and omits client-controlled amoun
   assert.match(app, /plainTextDescription/);
   assert.doesNotMatch(app, /from "\.\/products\.js"/);
   assert.doesNotMatch(app, /convertPriceBetweenCurrencies/);
-  assert.match(app, /catalogProducts\.find\(\(product\) => product\.id === id\)/);
+  assert.match(app, /findCatalogProduct\(catalogProducts, id\)/);
+  assert.match(app, /productFromUrlId/);
+  assert.match(app, /history\.replaceState/);
   assert.match(app, /shop\.noResults/);
   assert.match(app, /catalog\.noProducts/);
-  assert.match(app, /produitId: product\.chariowProductId/);
-  assert.doesNotMatch(app, /produitId: product\.id|currency: CHECKOUT_CURRENCY/);
+  assert.match(app, /produitId: product\.id/);
+  assert.doesNotMatch(app, /chariowProductId|currency: CHECKOUT_CURRENCY/);
+  assert.match(app, /migrateLegacyProductIds\(cartIds, catalogProducts\)/);
+  assert.match(app, /writeCart\(migratedCartIds\)/);
+  assert.doesNotMatch(app, /crypto\.randomUUID|randomUUID/);
+  assert.match(app, /produit\.html\?id=\$\{encodeURIComponent\(product\.id\)\}/);
+  assert.match(app, /commande\.html\?id=\$\{encodeURIComponent\(product\.id\)\}/);
   assert.match(app, /sumPricesInSameCurrency/);
   assert.match(app, /memoryCart/);
   assert.match(app, /cartStorageUnavailable/);
@@ -222,6 +261,8 @@ test("the storefront uses French text only and has no English locale dependency"
   assert.equal(typeof fr.shop.noResults, "string");
   assert.equal(typeof fr.product.notFound, "string");
   assert.equal(typeof fr.cart.staleReferences, "string");
+  assert.match(fr.product.notFound, /Sélectionnez de nouveau le produit/);
+  assert.match(fr.cart.staleReferences, /Sélectionnez de nouveau le produit/);
   assert.equal(typeof fr.cart.removeStale, "string");
   assert.match(app, /initFrench/);
   assert.doesNotMatch(app, /languagechange|documentElement\.lang === "en"|language\.js|en\.json/);
