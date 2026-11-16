@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createPublicCatalogHandler } from "../backend/functions/public-catalog.mjs";
-import { ChariowApiError } from "../backend/services/chariow/products.mjs";
+import {
+  createPublicCatalogHandler
+} from "../backend/functions/public-catalog.mjs";
+import {
+  CatalogStorageError,
+  readRatings
+} from "../backend/services/catalog/_catalog.mjs";
+import { projectPublicProduct } from "../backend/services/chariow/public-products.mjs";
 
-const ORIGIN = "https://pgd-market.netlify.app";
-const firstProductId = "prd_5lj7fz8k";
-const secondProductId = "prd_ln1r0vbr";
+const firstProductId = "prd_product_one";
+const secondProductId = "prd_product_two";
 const chariowProduct = (overrides = {}) => ({
   id: firstProductId,
   name: "Produit Chariow",
@@ -26,125 +31,223 @@ const chariowProduct = (overrides = {}) => ({
   quantity: null,
   ...overrides
 });
-const request = (method = "GET") =>
-  new Request(`${ORIGIN}/.netlify/functions/public-catalog`, { method });
-const handlerFor = (products, options = {}) => createPublicCatalogHandler({
-  productReader: async () => products,
-  env: { CHARIOW_ADMIN_API_KEY: "server-only-key", ...options.env }
+
+const handlerFor = (products, ratings = {}) => createPublicCatalogHandler({
+  connectBlobs: () => {},
+  fetchProducts: async () => products,
+  readRatings: async () => ({ ratings })
 });
 
-test("public GET keeps the Chariow ID canonical and returns exact legacy mappings separately", async () => {
+test("public catalog publishes canonical Chariow IDs with their PGD rating", async () => {
   const source = chariowProduct();
-  const response = await handlerFor([source])(request());
-  const body = await response.json();
+  const response = await handlerFor([source], { [firstProductId]: 5 })();
+  const body = JSON.parse(response.body);
 
-  assert.equal(response.status, 200);
+  assert.equal(response.statusCode, 200);
   assert.deepEqual(body, {
     success: true,
     count: 1,
     products: [{
       id: firstProductId,
-      legacyPgdId: "550e8400-e29b-41d4-a716-446655440000",
       name: source.name,
       description: source.description,
       price: 4200.5,
+      originalPrice: null,
+      discountPercentage: null,
       currency: "XOF",
       image: source.pictures.cover,
+      rating: 5,
       category: "Guides"
     }]
   });
-  assert.doesNotMatch(JSON.stringify(body), /server-only-key|Authorization|delivery|fichier/i);
+  assert.doesNotMatch(JSON.stringify(body), /reviews|avis|rating_count/i);
 });
 
-test("public catalog selects the current price and falls back to the local image safely", async () => {
-  const source = chariowProduct({
-    id: secondProductId,
-    pictures: { cover: "http://insecure.example/image.jpg", thumbnail: null },
+test("public catalog publishes a valid Chariow original price only when it exceeds the current price", async () => {
+  const discounted = chariowProduct({
     pricing: {
       type: "fixed",
-      current_price: { value: 15.75, currency: "EUR" },
-      effective: { value: 15.75, currency: "EUR" }
+      current_price: { value: 3000, currency: "XOF" },
+      price: { value: 5000, currency: "XOF" },
+      price_off: "40%"
     }
   });
-  const response = await handlerFor([source])(request());
-  const body = await response.json();
+  const response = await handlerFor([discounted])();
+  const body = JSON.parse(response.body);
 
-  assert.equal(body.products[0].id, secondProductId);
-  assert.equal(body.products[0].legacyPgdId, "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90");
-  assert.equal(body.products[0].price, 15.75);
-  assert.equal(body.products[0].currency, "EUR");
-  assert.equal(body.products[0].image, "assets/images/2.jpg");
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.products[0].price, 3000);
+  assert.equal(body.products[0].originalPrice, 5000);
+  assert.equal(body.products[0].discountPercentage, "40%");
+  assert.equal(body.products[0].currency, "XOF");
 });
 
-test("public catalog excludes unsupported products but includes new Chariow products", async () => {
-  const newProduct = chariowProduct({ id: "prd_new_product" });
+test("public catalog exposes only valid Chariow discount percentages", async () => {
+  const productWithDiscount = (id, priceOff, includeOriginalPrice = true) => chariowProduct({
+    id,
+    pricing: {
+      type: "fixed",
+      current_price: { value: 3000, currency: "XOF" },
+      ...(includeOriginalPrice ? { price: { value: 5000, currency: "XOF" } } : {}),
+      price_off: priceOff
+    }
+  });
+  const response = await handlerFor([
+    productWithDiscount("prd_discount_40", "40%"),
+    productWithDiscount("prd_discount_20", "20%"),
+    productWithDiscount("prd_discount_zero", "0%"),
+    productWithDiscount("prd_discount_invalid", "sale"),
+    productWithDiscount("prd_discount_unverified", "40%", false)
+  ])();
+  const body = JSON.parse(response.body);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(body.products.map((product) => product.discountPercentage), [
+    "40%",
+    "20%",
+    null,
+    null,
+    null
+  ]);
+});
+
+test("zero rating means no stars and an invalid Chariow image gets the generic fallback", () => {
+  const projected = projectPublicProduct(chariowProduct({
+    id: secondProductId,
+    pictures: { cover: "http://insecure.example/image.jpg", thumbnail: null }
+  }), 0);
+
+  assert.equal(projected.id, secondProductId);
+  assert.equal(projected.rating, 0);
+  assert.equal(projected.image, "assets/Background/logo-bronze.png");
+});
+
+test("public catalog connects Lambda Blobs and publishes products without ratings", async () => {
+  const calls = [];
+  const ratingKeys = [];
+  const store = {
+    getWithMetadata: async (key) => {
+      ratingKeys.push(key);
+      return null;
+    }
+  };
+  const event = {
+    blobs: Buffer.from(JSON.stringify({
+      url: "https://blobs.netlify.com",
+      token: "test-netlify-token"
+    })).toString("base64"),
+    headers: {
+      "x-nf-site-id": "test-site",
+      "x-nf-deploy-id": "test-deploy"
+    }
+  };
+  const handler = createPublicCatalogHandler({
+    fetchProducts: async () => {
+      calls.push("products");
+      return [chariowProduct()];
+    },
+    readRatings: async () => {
+      calls.push("ratings");
+      return readRatings({ store });
+    }
+  });
+  const response = await handler(event);
+  const body = JSON.parse(response.body);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.count, 1);
+  assert.equal(body.products[0].id, firstProductId);
+  assert.equal(body.products[0].rating, 0);
+  assert.deepEqual(calls, ["products", "ratings"]);
+  assert.deepEqual(ratingKeys, ["ratings-v1"]);
+});
+
+test("invalid legacy product identifiers are never published as product IDs", async () => {
+  const response = await handlerFor([
+    chariowProduct({ id: "local-product-ref" }),
+    chariowProduct({ id: "550e8400-e29b-41d4-a716-446655440000" }),
+    chariowProduct({ id: "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90" }),
+    chariowProduct({ id: secondProductId })
+  ])();
+  const body = JSON.parse(response.body);
+
+  assert.equal(body.count, 1);
+  assert.equal(body.products[0].id, secondProductId);
+});
+
+test("empty Chariow catalog has the same stable response structure", async () => {
+  const response = await handlerFor([])();
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), {
+    success: true,
+    count: 0,
+    products: []
+  });
+});
+
+test("unsupported Chariow products are omitted while valid products remain", async () => {
   const response = await handlerFor([
     chariowProduct({ status: "draft" }),
-    chariowProduct({ id: "550e8400-e29b-41d4-a716-446655440000" }),
     chariowProduct({ id: secondProductId, has_variant_pricing: true }),
-    chariowProduct({ id: secondProductId, is_free: true }),
-    chariowProduct({ id: secondProductId, type: "service" }),
-    chariowProduct({ id: secondProductId, pricing: { type: "what_you_want" } }),
-    chariowProduct({ id: secondProductId, quantity: { remaining: { value: 0 } } }),
-    newProduct
-  ])(request());
-  const body = await response.json();
+    chariowProduct({ id: "prd_new_product" })
+  ])();
+  const body = JSON.parse(response.body);
 
-  assert.equal(response.status, 200);
   assert.equal(body.count, 1);
-  assert.deepEqual(body.products[0], {
-    id: "prd_new_product",
-    legacyPgdId: null,
-    name: newProduct.name,
-    description: newProduct.description,
-    price: 4200.5,
-    currency: "XOF",
-    image: newProduct.pictures.cover,
-    category: "Guides"
-  });
+  assert.equal(body.products[0].id, "prd_new_product");
 });
 
-test("public endpoint rejects non-GET methods without contacting Chariow", async () => {
-  let reads = 0;
-  const handler = createPublicCatalogHandler({
-    productReader: async () => {
-      reads += 1;
-      return [];
-    }
-  });
-  for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
-    const response = await handler(request(method));
-    assert.equal(response.status, 405);
-    assert.equal(response.headers.get("allow"), "GET");
-  }
-  assert.equal(reads, 0);
-});
+test("public catalog and checkout share strict availability handling", async () => {
+  const response = await handlerFor([
+    chariowProduct({ quantity: { remaining: 2 } }),
+    chariowProduct({ id: secondProductId, quantity: { remaining: { value: 3 } } }),
+    chariowProduct({ id: "prd_out_of_stock", quantity: { remaining: 0 } }),
+    chariowProduct({ id: "prd_invalid_stock", quantity: { remaining: { value: "3" } } })
+  ])();
 
-test("public responses use the documented cache and security headers", async () => {
-  const response = await handlerFor([])(request());
-  assert.equal(response.headers.get("content-type"), "application/json; charset=utf-8");
-  assert.equal(
-    response.headers.get("cache-control"),
-    "public, max-age=0, s-maxage=30, stale-while-revalidate=30"
+  assert.deepEqual(
+    JSON.parse(response.body).products.map(({ id }) => id),
+    [firstProductId, secondProductId]
   );
-  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
 });
 
-test("upstream failures are sanitized and configuration values are not exposed", async (t) => {
-  for (const error of [
-    new ChariowApiError(503, "CHARIOW_CONFIGURATION_MISSING", "private configuration"),
-    new ChariowApiError(503, "CHARIOW_SCOPE_MISSING", "private scope detail"),
-    new ChariowApiError(504, "CHARIOW_TIMEOUT", "private timeout detail")
-  ]) {
-    await t.test(error.code, async () => {
-      const response = await createPublicCatalogHandler({
-        productReader: async () => { throw error; }
-      })(request());
-      const body = await response.json();
+test("public catalog rejects missing or invalid current prices instead of falling back", async () => {
+  const response = await handlerFor([
+    chariowProduct({
+      pricing: {
+        type: "fixed",
+        effective: { value: 4200, currency: "XOF" }
+      }
+    }),
+    chariowProduct({
+      id: secondProductId,
+      pricing: {
+        type: "fixed",
+        current_price: { value: 0, currency: "XOF" },
+        effective: { value: 4200, currency: "XOF" }
+      }
+    })
+  ])();
 
-      assert.equal(response.status, error.status === 504 ? 504 : 503);
-      assert.equal(body.error, error.code);
-      assert.doesNotMatch(JSON.stringify(body), /private|secret|token|key/i);
-    });
-  }
+  assert.deepEqual(JSON.parse(response.body).products, []);
+});
+
+test("rating storage failures stop publication instead of returning defaults", async () => {
+  let chariowReads = 0;
+  const response = await createPublicCatalogHandler({
+    connectBlobs: () => {},
+    readRatings: async () => {
+      throw new CatalogStorageError("RATINGS_UNAVAILABLE", 503, "private storage detail");
+    },
+    fetchProducts: async () => {
+      chariowReads += 1;
+      return [chariowProduct()];
+    }
+  })();
+  const body = JSON.parse(response.body);
+
+  assert.equal(response.statusCode, 503);
+  assert.equal(body.error.code, "RATINGS_UNAVAILABLE");
+  assert.equal(chariowReads, 1);
+  assert.doesNotMatch(JSON.stringify(body), /private storage detail/i);
 });

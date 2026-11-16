@@ -24,11 +24,11 @@ const product = (overrides = {}) => ({
 const event = (overrides = {}) => ({
   httpMethod: "POST",
   body: JSON.stringify({
-    nom: "Client Exemple",
+    first_name: "Client",
+    last_name: "Exemple",
     email: "client@example.com",
-    phone: "123456789",
-    phoneCountryCode: "BF",
-    produitId: product().id,
+    phone: { number: "+226 70 12 34 56", country_code: "BF" },
+    product_id: product().id,
     ...overrides
   })
 });
@@ -37,7 +37,9 @@ const createHandler = ({
   chariowProduct = product(),
   productError,
   checkoutResponse,
-  checkoutStatus = 200
+  checkoutStatus = 200,
+  fetchImpl,
+  timeoutMs
 } = {}) => {
   const productRequests = [];
   const checkoutRequests = [];
@@ -49,6 +51,7 @@ const createHandler = ({
     },
     fetchImpl: async (url, options) => {
       checkoutRequests.push({ url, options });
+      if (fetchImpl) return fetchImpl(url, options);
       return new Response(JSON.stringify(checkoutResponse || {
         data: {
           step: "payment",
@@ -56,6 +59,7 @@ const createHandler = ({
         }
       }), { status: checkoutStatus });
     },
+    timeoutMs,
     env: {
       CHARIOW_ADMIN_API_KEY: "read-test-key",
       CHARIOW_API_KEY: "checkout-test-key",
@@ -66,13 +70,9 @@ const createHandler = ({
   return { handler, productRequests, checkoutRequests };
 };
 
-test("checkout validates a Chariow product server-side and sends its ID without client price", async () => {
+test("checkout validates a Chariow product server-side and sends only the required fields", async () => {
   const fixture = createHandler();
-  const response = await fixture.handler(event({
-    price: 1,
-    currency: "EUR",
-    chariowProductId: "prd_browser_value"
-  }));
+  const response = await fixture.handler(event());
   const body = JSON.parse(response.body);
   const request = fixture.checkoutRequests[0];
   const chariowPayload = JSON.parse(request.options.body);
@@ -86,22 +86,40 @@ test("checkout validates a Chariow product server-side and sends its ID without 
   assert.equal(fixture.productRequests[0].productId, product().id);
   assert.equal(fixture.productRequests[0].apiKey, "read-test-key");
   assert.equal(request.url, "https://chariow.invalid/v1/checkout");
-  assert.equal(chariowPayload.product_id, product().id);
-  assert.equal("price" in chariowPayload, false);
-  assert.equal("currency" in chariowPayload, false);
-  assert.equal(chariowPayload.payment_currency, "XOF");
-  assert.equal(chariowPayload.first_name, "Client");
-  assert.equal(chariowPayload.last_name, "Exemple");
-  assert.equal(chariowPayload.redirect_url, "https://shop.example/success.html");
-  assert.equal(chariowPayload.custom_metadata.produit_id, product().id);
-  assert.equal("chariowProductId" in chariowPayload, false);
+  assert.deepEqual(chariowPayload, {
+    product_id: product().id,
+    email: "client@example.com",
+    first_name: "Client",
+    last_name: "Exemple",
+    phone: { number: "22670123456", country_code: "BF" }
+  });
+  assert.equal(Object.hasOwn(chariowPayload, "redirect_url"), false);
+});
+
+test("checkout rejects client prices and unrequested optional fields", async (t) => {
+  for (const [label, extras] of [
+    ["price", { price: 1 }],
+    ["forced currency", { payment_currency: "EUR" }],
+    ["custom metadata", { custom_metadata: { browser: true } }],
+    ["phone extension", { phone: { number: "123456789", country_code: "BF", extension: "1" } }]
+  ]) {
+    await t.test(label, async () => {
+      const fixture = createHandler();
+      const response = await fixture.handler(event(extras));
+
+      assert.equal(response.statusCode, 400);
+      assert.equal(JSON.parse(response.body).code, "INVALID_CHECKOUT_DATA");
+      assert.equal(fixture.productRequests.length, 0);
+      assert.equal(fixture.checkoutRequests.length, 0);
+    });
+  }
 });
 
 test("malformed and legacy PGD IDs are rejected before any API request", async (t) => {
-  for (const id of ["not-a-chariow-id", "550e8400-e29b-41d4-a716-446655440000"]) {
+  for (const id of ["not-a-chariow-id", "00000000-0000-4000-8000-000000000001"]) {
     await t.test(id, async () => {
       const fixture = createHandler();
-      const response = await fixture.handler(event({ produitId: id }));
+      const response = await fixture.handler(event({ product_id: id }));
 
       assert.equal(response.statusCode, 400);
       assert.equal(JSON.parse(response.body).code, "INVALID_CHECKOUT_DATA");
@@ -143,10 +161,21 @@ test("unpublished, unsupported, variant, free, or unpriced products fail closed"
     { type: "coaching" },
     { has_variant_pricing: true },
     { is_free: true },
+    { pricing: { type: "one_time", effective: { value: 4200, currency: "XOF" } } },
+    {
+      pricing: {
+        type: "one_time",
+        current_price: { value: "4200", currency: "XOF" },
+        effective: { value: 4200, currency: "XOF" }
+      }
+    },
     { pricing: { type: "free", current_price: { value: 0, currency: "XOF" } } },
     { pricing: { type: "what_you_want", current_price: { value: 5, currency: "XOF" } } },
     { pricing: { type: "one_time", current_price: { value: 0, currency: "XOF" } } },
-    { quantity: { remaining: { value: 0 } } }
+    { quantity: { remaining: { value: 0 } } },
+    { quantity: { remaining: 0 } },
+    { quantity: { remaining: -1 } },
+    { quantity: { remaining: { value: "2" } } }
   ];
   for (const [index, overrides] of invalidProducts.entries()) {
     await t.test(String(index), async () => {
@@ -176,15 +205,15 @@ test("product lookup failures fail closed without contacting the checkout endpoi
   assert.equal(fixture.checkoutRequests.length, 0);
 });
 
-test("checkout handles completed and already-purchased states from Chariow", async (t) => {
+test("checkout treats Chariow completed and already-purchased states as non-payment results", async (t) => {
   await t.test("completed", async () => {
     const fixture = createHandler({
       checkoutResponse: { data: { step: "completed", purchase: { status: "completed" } } }
     });
     const response = await fixture.handler(event());
 
-    assert.equal(response.statusCode, 200);
-    assert.deepEqual(JSON.parse(response.body), { status: "completed" });
+    assert.equal(response.statusCode, 409);
+    assert.equal(JSON.parse(response.body).code, "ALREADY_PURCHASED");
   });
 
   await t.test("already purchased", async () => {
@@ -206,7 +235,60 @@ test("checkout handles completed and already-purchased states from Chariow", asy
   });
 });
 
+test("checkout rejects oversized requests and times out stalled Chariow responses", async (t) => {
+  await t.test("oversized request", async () => {
+    const fixture = createHandler();
+    const response = await fixture.handler({
+      ...event(),
+      body: " ".repeat(8193)
+    });
+
+    assert.equal(response.statusCode, 413);
+    assert.equal(JSON.parse(response.body).code, "REQUEST_TOO_LARGE");
+    assert.equal(fixture.productRequests.length, 0);
+    assert.equal(fixture.checkoutRequests.length, 0);
+  });
+
+  await t.test("timeout", async () => {
+    const fixture = createHandler({
+      timeoutMs: 5,
+      fetchImpl: (_url, options) => new Promise((_resolve, reject) => {
+        options.signal.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        }, { once: true });
+      })
+    });
+    const response = await fixture.handler(event());
+
+    assert.equal(response.statusCode, 504);
+    assert.equal(JSON.parse(response.body).code, "CHARIOW_TIMEOUT");
+  });
+});
+
 test("checkout rejects unsafe hosted URLs and sanitizes upstream HTTP errors", async (t) => {
+  await t.test("accepts the HTTPS host returned for Chariow's Orqex gateway", async () => {
+    const fixture = createHandler({
+      checkoutResponse: {
+        data: {
+          step: "payment",
+          purchase: { id: "sal_test", status: "awaiting_payment" },
+          payment: {
+            checkout_url: "https://checkout.orqex.com/session/test",
+            transaction_id: "txn_test",
+            gateway: "orqex"
+          }
+        }
+      }
+    });
+    const response = await fixture.handler(event());
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(
+      JSON.parse(response.body).checkout_url,
+      "https://checkout.orqex.com/session/test"
+    );
+  });
+
   await t.test("unsafe URL", async () => {
     const fixture = createHandler({
       checkoutResponse: {
@@ -217,6 +299,29 @@ test("checkout rejects unsafe hosted URLs and sanitizes upstream HTTP errors", a
 
     assert.equal(response.statusCode, 502);
     assert.equal(JSON.parse(response.body).code, "CHARIOW_INVALID_RESPONSE");
+  });
+
+  await t.test("does not trust an unlisted gateway or host", async (t) => {
+    for (const [label, url, gateway] of [
+      ["gateway mismatch", "https://checkout.orqex.com/session", "another-gateway"],
+      ["non-HTTPS URL", "http://checkout.orqex.com/session", "orqex"],
+      ["unlisted host", "https://payments.orqex.com/session", "orqex"]
+    ]) {
+      await t.test(label, async () => {
+        const fixture = createHandler({
+          checkoutResponse: {
+            data: {
+              step: "payment",
+              payment: { checkout_url: url, gateway }
+            }
+          }
+        });
+        const response = await fixture.handler(event());
+
+        assert.equal(response.statusCode, 502);
+        assert.equal(JSON.parse(response.body).code, "CHARIOW_INVALID_RESPONSE");
+      });
+    }
   });
 
   await t.test("upstream error", async () => {

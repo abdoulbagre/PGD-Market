@@ -19,9 +19,7 @@ test("build publishes storefront and admin routes without backend sources", asyn
     "index.html",
     "boutique.html",
     "produit.html",
-    "panier.html",
     "commande.html",
-    "success.html",
     "contact.html",
     "mentions-legales.html",
     "politique-confidentialite.html",
@@ -29,6 +27,8 @@ test("build publishes storefront and admin routes without backend sources", asyn
   ]) {
     await access(path.join(outputDirectory, route));
   }
+  await assert.rejects(access(path.join(outputDirectory, "success.html")));
+  await assert.rejects(access(path.join(outputDirectory, "panier.html")));
 
   for (const asset of [
     "assets/css/style.css",
@@ -36,15 +36,22 @@ test("build publishes storefront and admin routes without backend sources", asyn
     "assets/js/app.js",
     "assets/js/admin.js",
     "assets/js/admin-ui.js",
-    "assets/images/1.jpg",
+    "assets/Background/logo-bronze.png",
+    "assets/payments/visa.svg",
     "locales/fr.json"
   ]) {
     await access(path.join(outputDirectory, asset));
   }
+  await assert.rejects(access(path.join(outputDirectory, "assets/images/1.jpg")));
 
   const adminPage = await readFile(path.join(outputDirectory, "admin.html"), "utf8");
   assert.match(adminPage, /assets\/css\/admin\.css/);
   assert.match(adminPage, /assets\/js\/admin\.js/);
+  const catalogScripts = await Promise.all([
+    readFile(path.join(outputDirectory, "assets/js/app.js"), "utf8"),
+    readFile(path.join(outputDirectory, "assets/js/catalog.js"), "utf8")
+  ]);
+  assert.doesNotMatch(catalogScripts.join("\n"), /catalog-seed\.json/i);
   await assert.rejects(access(path.join(outputDirectory, "backend")));
   await assert.rejects(access(path.join(outputDirectory, "tests")));
   await assert.rejects(access(path.join(outputDirectory, ".agents")));

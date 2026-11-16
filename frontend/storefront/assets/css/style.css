@@ -127,18 +127,6 @@ select {
     color: var(--accent)
 }
 
-.cart-count {
-    display: inline-grid;
-    place-items: center;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 5px;
-    border-radius: 50%;
-    background: var(--accent);
-    color: #fff;
-    font-size: .7rem
-}
-
 .menu-toggle {
     display: none;
     background: none;
@@ -978,38 +966,6 @@ select {
 .form-message {
     color: #b33b2e;
     font: .85rem Arial, sans-serif
-}
-
-.cart-content {
-    display: grid;
-    gap: 12px
-}
-
-.cart-item {
-    background: rgba(255, 255, 255, .9);
-    border: 1px solid rgba(22, 34, 45, .08);
-    box-shadow: 0 8px 18px rgba(18, 27, 38, .03);
-    padding: 14px;
-    display: flex;
-    align-items: center;
-    gap: 16px
-}
-
-.cart-item img {
-    width: 74px;
-    height: 74px;
-    object-fit: cover
-}
-
-.cart-item h2 {
-    font-size: 1rem;
-    font-weight: 400;
-    margin: 0 0 5px;
-    flex: 1
-}
-
-.cart-item .button {
-    margin-left: auto
 }
 
 .site-footer {

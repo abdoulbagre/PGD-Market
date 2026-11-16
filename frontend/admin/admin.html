@@ -87,6 +87,10 @@
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9.5h17l-1.6 10H5.1z"/><path d="M8 9.5l4-6 4 6M8 14v2M12 14v2M16 14v2"/></svg>
             <span>Tableau de bord</span>
           </button>
+          <button class="admin-sidebar-link" type="button" data-admin-view="products">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v13H4z"/><path d="M8 9h8M8 12.5h5"/></svg>
+            <span>Notes des produits</span>
+          </button>
         </nav>
         <div class="admin-sidebar-footer">
           <p class="admin-role"><span aria-hidden="true"></span> Session administrateur</p>
@@ -108,6 +112,7 @@
               <h1>Espace d’administration</h1>
             </div>
           </div>
+          <a class="admin-home-link" href="index.html">Accueil</a>
           <p class="admin-topbar-status"><span aria-hidden="true"></span> Session administrateur active</p>
         </header>
 
@@ -120,38 +125,22 @@
               </div>
             </div>
 
-            <section class="admin-stat-grid" data-catalog-overview-stats aria-label="Indicateurs du catalogue">
+            <section class="admin-stat-grid" data-catalog-overview-stats aria-label="Indicateurs des notes PGD">
               <article class="admin-stat-card">
                 <span class="admin-stat-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
                 </span>
                 <p>Produits</p>
                 <strong data-stat-total>0</strong>
-                <span>au catalogue</span>
+                <span>chargés depuis Chariow</span>
               </article>
               <article class="admin-stat-card">
                 <span class="admin-stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3z"/></svg>
                 </span>
-                <p>Publiés</p>
-                <strong data-stat-published>0</strong>
-                <span>visibles dans la boutique</span>
-              </article>
-              <article class="admin-stat-card">
-                <span class="admin-stat-icon admin-stat-gold" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M8.5 12l2.2 2.2 4.8-4.8"/></svg>
-                </span>
-                <p>Disponibles</p>
-                <strong data-stat-available>0</strong>
-                <span>à la vente</span>
-              </article>
-              <article class="admin-stat-card">
-                <span class="admin-stat-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16v12H4z"/><path d="M3 4h18v4H3zM9 13h6"/></svg>
-                </span>
-                <p>Archives</p>
-                <strong data-stat-archived>0</strong>
-                <span>mis de côté</span>
+                <p>Notes définies</p>
+                <strong data-stat-rated>0</strong>
+                <span>produits notés par PGD</span>
               </article>
             </section>
           </div>
@@ -162,11 +151,7 @@
             <div class="admin-panel-heading admin-products-heading">
               <div>
                 <h2 id="products-heading" tabindex="-1">Produits</h2>
-                <p>Les modifications sont enregistrées dans le catalogue central.</p>
-              </div>
-              <div class="admin-header-actions">
-                <button class="button button-outline" type="button" data-catalog-initialize>Initialiser le catalogue</button>
-                <button class="button button-primary" type="button" data-product-create>Ajouter un produit</button>
+                <p>Les produits et les prix proviennent de Chariow. PGD Market gère uniquement les notes.</p>
               </div>
             </div>
             <div class="admin-list-toolbar">
@@ -175,12 +160,6 @@
                 <svg class="admin-search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4 4"/></svg>
                 <input type="search" data-product-search placeholder="Rechercher un produit…" autocomplete="off">
               </label>
-              <div class="admin-filter-group" role="group" aria-label="Filtrer les produits">
-                <button class="admin-filter is-active" type="button" data-product-filter="all" aria-pressed="true">Tous</button>
-                <button class="admin-filter" type="button" data-product-filter="published" aria-pressed="false">Publiés</button>
-                <button class="admin-filter" type="button" data-product-filter="available" aria-pressed="false">Disponibles</button>
-              </div>
-              <button class="button button-outline admin-open-archives" type="button" data-admin-archives>Voir les archives</button>
               <button class="button button-outline admin-refresh" type="button" data-products-refresh aria-label="Actualiser le catalogue">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 0 0-12.4-4.5L5 9M4 17v-5h5"/><path d="M5 12a7 7 0 0 0 12.4 4.5L19 15"/></svg>
                 <span>Actualiser</span>
@@ -190,8 +169,8 @@
             <div class="admin-product-table" role="table" aria-label="Produits du catalogue">
               <div class="admin-product-table-head" role="row">
                 <span id="products-col-product" role="columnheader">Produit</span>
-                <span id="products-col-price" role="columnheader">Prix</span>
-                <span id="products-col-state" role="columnheader">État</span>
+                <span id="products-col-price" role="columnheader">Prix Chariow</span>
+                <span id="products-col-state" role="columnheader">Note PGD</span>
                 <span id="products-col-actions" role="columnheader">Actions</span>
               </div>
               <div class="admin-product-list" data-products-list role="rowgroup" aria-busy="false"></div>
@@ -379,79 +358,23 @@
           <section class="admin-panel admin-product-editor" data-product-editor hidden aria-labelledby="product-editor-title">
             <div class="admin-panel-heading">
               <div>
-                <h2 id="product-editor-title" tabindex="-1">Ajouter un produit</h2>
-                <p data-editor-description>Renseignez les informations du produit.</p>
+                <h2 id="product-editor-title" tabindex="-1">Modifier la note PGD</h2>
+                <p data-editor-description>Les informations produit et le prix restent gérés par Chariow.</p>
               </div>
             </div>
             <form data-product-form novalidate>
-              <div class="admin-editor-sections">
-                <fieldset class="admin-editor-section">
-                  <legend>Informations du produit</legend>
-                  <div class="admin-editor-grid">
-                    <div class="admin-field">
-                      <label for="product-name">Nom</label>
-                      <input id="product-name" name="name" maxlength="200" required aria-describedby="product-name-error">
-                      <p class="field-error" id="product-name-error" data-product-error="name" role="alert" hidden></p>
-                    </div>
-                    <div class="admin-field">
-                      <label for="product-image">Image (chemin sous assets/)</label>
-                      <input id="product-image" name="image" maxlength="512" placeholder="assets/images/produit.jpg" required aria-describedby="product-image-error">
-                      <p class="field-error" id="product-image-error" data-product-error="image" role="alert" hidden></p>
-                    </div>
-                    <div class="admin-field">
-                      <label for="product-category">Catégorie</label>
-                      <input id="product-category" name="category" maxlength="120">
-                    </div>
-                    <div class="admin-field admin-editor-wide">
-                      <label for="product-description">Description</label>
-                      <textarea id="product-description" name="description" maxlength="20000" rows="4" required aria-describedby="product-description-error"></textarea>
-                      <p class="field-error" id="product-description-error" data-product-error="description" role="alert" hidden></p>
-                    </div>
-                  </div>
-                </fieldset>
-                <fieldset class="admin-editor-section">
-                  <legend>Commercial</legend>
-                  <div class="admin-editor-grid">
-                    <div class="admin-field">
-                      <label for="product-price">Prix</label>
-                      <input id="product-price" name="price" type="number" min="1" step="1" required aria-describedby="product-price-error">
-                      <p class="field-error" id="product-price-error" data-product-error="price" role="alert" hidden></p>
-                    </div>
-                    <div class="admin-field">
-                      <label for="product-currency">Devise</label>
-                      <select id="product-currency" name="currency" required aria-describedby="product-currency-error">
-                        <option value="XOF">XOF</option>
-                        <option value="EUR">EUR</option>
-                        <option value="USD">USD</option>
-                      </select>
-                      <p class="field-error" id="product-currency-error" data-product-error="currency" role="alert" hidden></p>
-                    </div>
-                    <div class="admin-field admin-editor-wide">
-                      <label for="chariow-product-id">Identifiant produit Chariow</label>
-                      <input id="chariow-product-id" name="chariow-product-id" pattern="prd_[A-Za-z0-9_\x2d]+" maxlength="128" required aria-describedby="chariow-product-id-help chariow-product-id-error">
-                      <p id="chariow-product-id-help" class="field-help" data-chariow-id-help>Renseigné à la création et utilisé pour le paiement Chariow. Il ne peut pas être modifié après la création.</p>
-                      <p class="field-error" id="chariow-product-id-error" data-product-error="chariow-product-id" role="alert" hidden></p>
-                      <span class="field-lock" data-chariow-lock hidden>Verrouillé après création</span>
-                    </div>
-                    <div class="admin-checkbox-field">
-                      <label class="admin-checkbox" for="product-available">
-                        <input id="product-available" name="available" type="checkbox" aria-describedby="product-available-error">
-                        <span>Disponible à la vente</span>
-                      </label>
-                      <p class="field-error" id="product-available-error" data-product-error="available" role="alert" hidden></p>
-                    </div>
-                    <div class="admin-checkbox-field">
-                      <label class="admin-checkbox" for="product-published">
-                        <input id="product-published" name="published" type="checkbox">
-                        <span>Publié sur le site</span>
-                      </label>
-                    </div>
-                  </div>
-                </fieldset>
-              </div>
+              <fieldset class="admin-editor-section">
+                <legend>Note du produit</legend>
+                <div class="admin-field">
+                  <label for="product-rating">Note PGD (0 à 5 étoiles)</label>
+                  <input id="product-rating" name="rating" type="number" min="0" max="5" step="1" value="0" required aria-describedby="product-rating-help product-rating-error">
+                  <p id="product-rating-help" class="field-help">0 signifie aucune note. Cette valeur est gérée par PGD Market.</p>
+                  <p class="field-error" id="product-rating-error" data-product-error="rating" role="alert" hidden></p>
+                </div>
+              </fieldset>
               <p class="admin-form-message" data-form-message hidden role="status" aria-live="polite"></p>
               <div class="admin-form-actions">
-                <button class="button button-primary" type="submit" data-product-submit>Créer le produit</button>
+                <button class="button button-primary" type="submit" data-product-submit>Enregistrer la note</button>
                 <button class="button button-outline" type="button" data-editor-cancel>Annuler</button>
                 <button class="button button-outline" type="button" data-conflict-reload hidden>Recharger la version serveur</button>
               </div>

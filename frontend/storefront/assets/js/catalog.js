@@ -1,13 +1,15 @@
 const CATALOG_ENDPOINT = "/.netlify/functions/public-catalog";
 const PRODUCT_FIELDS = new Set([
   "id",
-  "legacyPgdId",
   "name",
   "description",
   "price",
+  "originalPrice",
+  "discountPercentage",
   "currency",
   "image",
-  "category"
+  "category",
+  "rating"
 ]);
 
 export class CatalogLoadError extends Error {
@@ -22,22 +24,41 @@ const isRecord = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
 const CHARIOW_PRODUCT_ID = /^prd_[A-Za-z0-9_-]{1,120}$/;
-const LEGACY_PGD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function findCatalogProduct(products, id) {
-  if (!Array.isArray(products) || typeof id !== "string") return null;
-  return products.find((product) => product.id === id) ||
-    products.find((product) => product.legacyPgdId === id) ||
-    null;
+  if (
+    !Array.isArray(products) ||
+    typeof id !== "string" ||
+    !CHARIOW_PRODUCT_ID.test(id)
+  ) {
+    return null;
+  }
+  return products.find((product) => product.id === id) || null;
 }
 
-export function migrateLegacyProductIds(ids, products) {
-  const legacyIds = new Map(
-    products
-      .filter((product) => typeof product.legacyPgdId === "string")
-      .map((product) => [product.legacyPgdId, product.id])
-  );
-  return [...new Set(ids.map((id) => legacyIds.get(id) || id))];
+export function getOriginalProductPrice(product) {
+  return isRecord(product) &&
+    typeof product.price === "number" &&
+    Number.isFinite(product.price) &&
+    typeof product.originalPrice === "number" &&
+    Number.isFinite(product.originalPrice) &&
+    product.originalPrice > product.price
+    ? product.originalPrice
+    : null;
+}
+
+export function getProductDiscountPercentage(product) {
+  if (!isRecord(product) || getOriginalProductPrice(product) === null) return null;
+
+  const discount = product.discountPercentage;
+  const match = typeof discount === "string"
+    ? /^(\d+(?:\.\d+)?)%$/.exec(discount)
+    : null;
+  const percentage = match ? Number(match[1]) : Number.NaN;
+
+  return Number.isFinite(percentage) && percentage > 0 && percentage <= 100
+    ? discount
+    : null;
 }
 
 export function plainTextDescription(value) {
@@ -57,6 +78,21 @@ export function plainTextDescription(value) {
     .replace(/ *\n */g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+export function renderProductRating(rating, label) {
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return "";
+  const stars = Array.from({ length: 5 }, (_, index) =>
+    index < rating ? "&#9733;" : "&#9734;"
+  ).join("");
+  const accessibleLabel = String(label).replace(/[&<>\"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;"
+  }[char]));
+  return `<div class="product-rating" role="img" aria-label="${accessibleLabel}"><span class="product-rating__stars" aria-hidden="true">${stars}</span></div>`;
 }
 
 const isFrenchText = (value) =>
@@ -90,18 +126,20 @@ export function isPublicProduct(product) {
     Object.keys(product).every((field) => PRODUCT_FIELDS.has(field)) &&
     typeof product.id === "string" &&
     CHARIOW_PRODUCT_ID.test(product.id) &&
-    (product.legacyPgdId === null ||
-      typeof product.legacyPgdId === "string" &&
-        LEGACY_PGD_ID.test(product.legacyPgdId)) &&
     isFrenchText(product.name) &&
     isFrenchText(product.description) &&
     typeof product.price === "number" &&
     Number.isFinite(product.price) &&
     product.price > 0 &&
+    (product.originalPrice === null || getOriginalProductPrice(product) !== null) &&
+    (product.discountPercentage === null || getProductDiscountPercentage(product) !== null) &&
     typeof product.currency === "string" &&
     /^[A-Z]{3}$/.test(product.currency) &&
     isSafeImage(product.image) &&
-    typeof product.category === "string";
+    typeof product.category === "string" &&
+    Number.isInteger(product.rating) &&
+    product.rating >= 0 &&
+    product.rating <= 5;
 }
 
 export function createCatalogClient(fetchImpl = (...args) => fetch(...args)) {

@@ -302,8 +302,7 @@
     color: var(--accent-dark)
 }
 
-.product-actions,
-.cart-actions {
+.product-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 10px
@@ -334,33 +333,6 @@
 .product-card .button-disabled {
     color: var(--ink);
     cursor: default
-}
-
-.cart-items {
-    display: grid;
-    gap: 12px
-}
-
-.cart-summary {
-    background: #fff;
-    border: 1px solid var(--line);
-    padding: 18px;
-    margin-top: 18px
-}
-
-.cart-summary p {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px
-}
-
-.cart-actions {
-    align-items: center
-}
-
-.cart-actions .form-message {
-    flex: 1;
-    min-width: 220px
 }
 
 .empty-reviews {

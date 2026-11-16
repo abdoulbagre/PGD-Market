@@ -6,6 +6,49 @@ const MAX_CURSOR_LENGTH = 2048;
 const isRecord = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
+export function resolveChariowPrice(product) {
+  const price = product?.pricing?.current_price;
+  if (
+    !isRecord(price) ||
+    typeof price.value !== "number" ||
+    !Number.isFinite(price.value) ||
+    price.value <= 0 ||
+    typeof price.currency !== "string" ||
+    !/^[A-Z]{3}$/.test(price.currency)
+  ) {
+    return null;
+  }
+
+  const originalPrice = product?.pricing?.price;
+  const originalValue =
+    isRecord(originalPrice) &&
+    typeof originalPrice.value === "number" &&
+    Number.isFinite(originalPrice.value) &&
+    originalPrice.value > price.value &&
+    originalPrice.currency === price.currency
+      ? originalPrice.value
+      : null;
+
+  return { value: price.value, currency: price.currency, originalValue };
+}
+
+export function resolveChariowDiscount(product) {
+  const price = resolveChariowPrice(product);
+  const discount = product?.pricing?.price_off;
+  const match = typeof discount === "string"
+    ? /^(\d+(?:\.\d+)?)%$/.exec(discount)
+    : null;
+  const percentage = match ? Number(match[1]) : Number.NaN;
+
+  return price?.originalValue !== null &&
+    price?.originalValue !== undefined &&
+    Number.isFinite(percentage) &&
+    percentage > 0 &&
+    percentage <= 100
+    ? discount
+    : null;
+}
+
 export class ChariowApiError extends Error {
   constructor(status, code, message) {
     super(message);

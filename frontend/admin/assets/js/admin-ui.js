@@ -1,29 +1,9 @@
 const catalogEndpoint = "/.netlify/functions/catalog";
-const catalogInitializationEndpoint = "/.netlify/functions/initialize-catalog";
 const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const frenchText = (value) => typeof value === "string" ? value : value.fr;
 
-export function getProductActions(product, archived = false) {
-  if (archived) return ["restore", "delete"];
-  return [
-    "edit",
-    "publication",
-    ...(product.published ? ["availability"] : []),
-    "archive"
-  ];
-}
-
-export function getProductStatusTransition(product, action) {
-  if (action === "publication") {
-    return {
-      published: !product.published,
-      available: product.published ? false : product.available
-    };
-  }
-  if (action === "availability" && product.published) {
-    return { published: true, available: !product.available };
-  }
-  return null;
+export function getProductActions(product, archived = false, canEditRatings = true) {
+  return product?.id && !archived && canEditRatings ? ["edit"] : [];
 }
 
 export function createAdminSessionLifecycle({ onExpire, onAuthenticate }) {
@@ -67,6 +47,7 @@ export class AdminCatalogError extends Error {
 
 export function createAdminCatalogController(fetchImpl = (...args) => fetch(...args)) {
   let etag = "";
+  let canEditRatings = false;
   let mutationInProgress = false;
   let editing = null;
 
@@ -112,56 +93,28 @@ export function createAdminCatalogController(fetchImpl = (...args) => fetch(...a
       throw new AdminCatalogError(0, "Le service du catalogue a renvoyé une réponse illisible.");
     }
     const responseEtag = response.headers.get("etag");
-    if (!isRecord(result) || !Array.isArray(result.products) || !responseEtag) {
+    const editable = result?.metadata?.canEditRatings === true;
+    if (
+      !isRecord(result) ||
+      !Array.isArray(result.products) ||
+      (!responseEtag && (options.method || editable))
+    ) {
       throw new AdminCatalogError(0, "La réponse du catalogue ne contient pas les données ou la version attendues.");
     }
-    return { result, etag: responseEtag };
+    return { result, etag: responseEtag || "", canEditRatings: editable && Boolean(responseEtag) };
   }
 
-  async function load({ archived = false } = {}) {
-    const url = archived ? `${catalogEndpoint}?status=archived` : catalogEndpoint;
-    const { result, etag: nextEtag } = await request(url);
+  async function load() {
+    const { result, etag: nextEtag, canEditRatings: editable } = await request(catalogEndpoint);
     etag = nextEtag;
-    return { products: result.products, etag };
-  }
-
-  async function initializeCatalog() {
-    let response;
-    try {
-      response = await fetchImpl(catalogInitializationEndpoint, {
-        method: "POST",
-        credentials: "same-origin",
-        cache: "no-store"
-      });
-    } catch {
-      throw new AdminCatalogError(0, "Connexion impossible. Vérifiez votre connexion puis réessayez.");
-    }
-
-    let result;
-    try {
-      result = await response.json();
-    } catch {
-      throw new AdminCatalogError(0, "Le service d’initialisation a renvoyé une réponse illisible.");
-    }
-    if (!response.ok) {
-      const messages = {
-        400: "La requête d’initialisation a été refusée.",
-        401: "Votre session a expiré. Reconnectez-vous pour continuer.",
-        403: "L’initialisation est autorisée uniquement pour un administrateur en production.",
-        503: "L’initialisation du catalogue est indisponible. Vérifiez la configuration serveur puis réessayez."
-      };
-      throw new AdminCatalogError(
-        response.status,
-        messages[response.status] || "Le service d’initialisation n’a pas pu traiter la demande."
-      );
-    }
-    if (!isRecord(result) || !["initialized", "already_exists"].includes(result.result)) {
-      throw new AdminCatalogError(0, "Le service d’initialisation a renvoyé un résultat inattendu.");
-    }
-    return result.result;
+    canEditRatings = editable;
+    return { products: result.products, etag, canEditRatings };
   }
 
   function beginEdit(product) {
+    if (!canEditRatings) {
+      throw new AdminCatalogError(403, "Les notes sont en lecture seule sur cet environnement.");
+    }
     if (!product || typeof product.id !== "string" || !etag) {
       throw new AdminCatalogError(0, "Actualisez le catalogue avant de modifier un produit.");
     }
@@ -175,6 +128,7 @@ export function createAdminCatalogController(fetchImpl = (...args) => fetch(...a
 
   function invalidate() {
     etag = "";
+    canEditRatings = false;
     editing = null;
   }
 
@@ -199,6 +153,9 @@ export function createAdminCatalogController(fetchImpl = (...args) => fetch(...a
     if (mutationInProgress) {
       throw new AdminCatalogError(0, "Une modification est déjà en cours.");
     }
+    if (!canEditRatings) {
+      throw new AdminCatalogError(403, "Les notes sont en lecture seule sur cet environnement.");
+    }
     if (!ifMatch) {
       throw new AdminCatalogError(0, "La version du catalogue manque. Actualisez avant de modifier.");
     }
@@ -214,7 +171,7 @@ export function createAdminCatalogController(fetchImpl = (...args) => fetch(...a
       const url = productId
         ? `${catalogEndpoint}?id=${encodeURIComponent(productId)}`
         : catalogEndpoint;
-      const { result, etag: nextEtag } = await request(url, {
+      const { result, etag: nextEtag, canEditRatings: editable } = await request(url, {
         method,
         headers: {
           "Content-Type": "application/json",
@@ -223,6 +180,7 @@ export function createAdminCatalogController(fetchImpl = (...args) => fetch(...a
         body: JSON.stringify(body)
       });
       etag = nextEtag;
+      canEditRatings = editable;
       return { products: result.products, product: result.product, etag };
     } catch (error) {
       if (error instanceof AdminCatalogError && error.status === 412 &&
@@ -237,7 +195,6 @@ export function createAdminCatalogController(fetchImpl = (...args) => fetch(...a
 
   return {
     load,
-    initializeCatalog,
     mutate,
     beginEdit,
     clearEdit,
@@ -245,6 +202,9 @@ export function createAdminCatalogController(fetchImpl = (...args) => fetch(...a
     reloadEdit,
     get etag() {
       return etag;
+    },
+    get canEditRatings() {
+      return canEditRatings;
     }
   };
 }
@@ -1448,7 +1408,6 @@ function initializeAdminUI() {
   const overviewTitle = document.querySelector("[data-overview-title]");
   const overviewDescription = document.querySelector("[data-overview-description]");
   const catalogOverviewStats = document.querySelector("[data-catalog-overview-stats]");
-  const initializeCatalogButton = document.querySelector("[data-catalog-initialize]");
   const screens = [...document.querySelectorAll("[data-admin-screen]")];
   const viewButtons = [...document.querySelectorAll("[data-admin-view]")];
   const productFilterButtons = [...document.querySelectorAll("[data-product-filter]")];
@@ -1568,40 +1527,6 @@ function initializeAdminUI() {
     void sessionLifecycle.change(allowed).refresh;
   }
 
-  initializeCatalogButton?.addEventListener("click", async () => {
-    const { confirmed } = await showConfirmation({
-      title: "Initialiser le catalogue central ?",
-      message: "Cette opération crée le catalogue à partir des données historiques et ne peut être effectuée qu’une seule fois.",
-      buttonLabel: "Initialiser le catalogue",
-      destructive: false
-    });
-    if (!confirmed) return;
-
-    initializeCatalogButton.disabled = true;
-    clearAdminMessage();
-    try {
-      const result = await controller.initializeCatalog();
-      if (result === "initialized") {
-        await refreshProducts();
-        showAdminMessage("Catalogue initialisé avec succès.", "success");
-        return;
-      }
-      showAdminMessage("Le catalogue existe déjà. Aucune modification n’a été effectuée.", "info");
-    } catch (error) {
-      if (error instanceof AdminCatalogError && error.status === 401) {
-        setAuthenticated(false);
-        document.dispatchEvent(new CustomEvent("admin:session-expired"));
-      } else {
-        showAdminMessage(
-          error.message || "L’initialisation du catalogue a échoué.",
-          "error"
-        );
-      }
-    } finally {
-      initializeCatalogButton.disabled = false;
-    }
-  });
-
   function showView(name, { loadData = true, focusHeading = false } = {}) {
     currentView = name;
     screens.forEach((screen) => {
@@ -1619,12 +1544,9 @@ function initializeAdminUI() {
     if (name === "chariow") {
       overviewTitle.textContent = "Chariow";
       overviewDescription.textContent = "Consultez les produits, ventes et statistiques issus de Chariow.";
-    } else if (name === "archives") {
-      overviewTitle.textContent = "Archives du catalogue";
-      overviewDescription.textContent = "Restaurez un produit ou supprimez-le définitivement.";
     } else {
-      overviewTitle.textContent = "Gestion du catalogue";
-      overviewDescription.textContent = "Suivez vos produits et leur présence dans la boutique.";
+      overviewTitle.textContent = "Notes des produits";
+      overviewDescription.textContent = "Les produits viennent de Chariow; modifiez uniquement leur note PGD.";
     }
     if (sidebar.classList.contains("is-open")) setSidebarOpen(false, !focusHeading);
     if (focusHeading) {
@@ -1834,7 +1756,9 @@ function initializeAdminUI() {
       identity.setAttribute("role", "cell");
       const image = document.createElement("img");
       image.className = "admin-product-image";
-      image.src = new URL(`../../${product.image}`, import.meta.url).href;
+      image.src = product.image.startsWith("assets/")
+        ? new URL(`../../../storefront/${product.image}`, import.meta.url).href
+        : product.image;
       image.alt = "";
       image.loading = "lazy";
       const details = document.createElement("div");
@@ -1852,25 +1776,18 @@ function initializeAdminUI() {
       price.className = "admin-product-price";
       price.id = `admin-${idPrefix}-price-${rowIndex}`;
       price.setAttribute("role", "cell");
-      price.textContent = `${new Intl.NumberFormat("fr-FR").format(product.price)} ${product.currency}`;
+      price.textContent = Number.isFinite(product.price)
+        ? `${new Intl.NumberFormat("fr-FR").format(product.price)} ${product.currency}`
+        : "Prix non disponible sur Chariow";
       price.setAttribute("aria-labelledby", `${columnIds[1]} ${price.id}`);
 
       const states = document.createElement("p");
       states.className = "admin-product-states";
       states.id = `admin-${idPrefix}-state-${rowIndex}`;
       states.setAttribute("role", "cell");
-      const stateBadges = archived
-        ? [["Archivé", "archived"]]
-        : [
-            [product.published ? "Publié" : "Non publié", product.published ? "published" : "unpublished"],
-            [product.available ? "Disponible" : "Indisponible", product.available ? "available" : "unavailable"]
-          ];
-      for (const [label, state] of stateBadges) {
-        const badge = document.createElement("span");
-        badge.className = `admin-state-badge admin-state-${state}`;
-        badge.textContent = label;
-        states.append(badge);
-      }
+      states.textContent = product.rating > 0
+        ? `${product.rating} / 5`
+        : "Aucune note";
       states.setAttribute("aria-labelledby", `${columnIds[2]} ${states.id}`);
 
       const actions = document.createElement("div");
@@ -1892,19 +1809,22 @@ function initializeAdminUI() {
         if (menu.open) requestAnimationFrame(() => positionActionMenu(menu));
         else menu.classList.remove("opens-up", "align-left");
       });
-      for (const action of getProductActions(product, archived)) {
-        const label = {
-          edit: "Modifier",
-          publication: product.published ? "Dépublier" : "Publier",
-          availability: product.available ? "Rendre indisponible" : "Rendre disponible",
-          archive: "Archiver",
-          restore: "Restaurer",
-          delete: "Supprimer définitivement"
-        }[action];
-        menuItems.append(makeButton(label, action, product));
+      const productActions = getProductActions(product, archived, controller.canEditRatings);
+      if (productActions.length) {
+        for (const action of productActions) {
+          const label = {
+            edit: "Modifier",
+            publication: product.published ? "Dépublier" : "Publier",
+            availability: product.available ? "Rendre indisponible" : "Rendre disponible",
+            archive: "Archiver",
+            restore: "Restaurer",
+            delete: "Supprimer définitivement"
+          }[action];
+          menuItems.append(makeButton(label, action, product));
+        }
+        menu.append(menuButton, menuItems);
       }
-      menu.append(menuButton, menuItems);
-      actions.append(menu);
+      if (productActions.length) actions.append(menu);
       card.append(identity, price, states, actions);
       container.append(card);
       rowIndex += 1;
@@ -1928,18 +1848,16 @@ function initializeAdminUI() {
 
   function renderDashboardStats() {
     document.querySelector("[data-stat-total]").textContent =
-      String(activeProducts.length + archivedProducts.length);
-    document.querySelector("[data-stat-published]").textContent =
-      String(activeProducts.filter((product) => product.published).length);
-    document.querySelector("[data-stat-available]").textContent =
-      String(activeProducts.filter((product) => product.available).length);
-    document.querySelector("[data-stat-archived]").textContent =
-      String(archivedProducts.length);
+      String(activeProducts.length);
+    document.querySelector("[data-stat-rated]").textContent =
+      String(activeProducts.filter((product) => product.rating > 0).length);
   }
 
   function renderProducts() {
     renderProductList(productList, activeProducts, false);
-    productsStatus.textContent = `${activeProducts.length} produit${activeProducts.length === 1 ? "" : "s"}`;
+    productsStatus.textContent =
+      `${activeProducts.length} produit${activeProducts.length === 1 ? "" : "s"}` +
+      (controller.canEditRatings ? "" : " — lecture seule sur cet environnement");
     renderDashboardStats();
   }
 
@@ -1957,7 +1875,7 @@ function initializeAdminUI() {
       const result = await controller.load();
       if (!sessionLifecycle.isCurrent(session)) return null;
       delete productsStatus.dataset.state;
-      activeProducts = result.products.filter((product) => !product.archivedAt);
+      activeProducts = result.products;
       renderProducts();
       clearAdminMessage();
       return result;
@@ -2011,15 +1929,13 @@ function initializeAdminUI() {
     form.querySelectorAll("input, textarea, select").forEach((field) => {
       field.disabled = false;
     });
-    form.elements.namedItem("chariow-product-id").readOnly = false;
-    document.querySelector("[data-chariow-lock]").hidden = true;
     submitButton.disabled = false;
-    submitButton.textContent = "Créer le produit";
+    submitButton.textContent = "Enregistrer la note";
     reloadButton.hidden = true;
     formMessage.hidden = true;
     delete formMessage.dataset.state;
-    editorTitle.textContent = "Ajouter un produit";
-    editorDescription.textContent = "Renseignez les informations du produit.";
+    editorTitle.textContent = "Modifier la note PGD";
+    editorDescription.textContent = "Les informations produit et le prix restent gérés par Chariow.";
   }
 
   function openEditor(product = null) {
@@ -2028,25 +1944,13 @@ function initializeAdminUI() {
     editingProduct = product;
     editingEtag = product ? controller.beginEdit(product) : "";
     if (product) {
-      editorTitle.textContent = "Modifier un produit";
-      editorDescription.textContent = "Les anciennes valeurs ne seront pas réappliquées après un conflit.";
-      submitButton.textContent = "Enregistrer les modifications";
-      form.elements.namedItem("name").value = frenchText(product.name);
-      form.elements.namedItem("description").value = frenchText(product.description);
-      form.elements.namedItem("category").value = product.category;
-      form.elements.namedItem("image").value = product.image;
-      form.elements.namedItem("price").value = String(product.price);
-      form.elements.namedItem("currency").value = product.currency;
-      form.elements.namedItem("chariow-product-id").value = product.chariowProductId || "";
-      form.elements.namedItem("chariow-product-id").readOnly = true;
-      document.querySelector("[data-chariow-lock]").hidden = false;
-      form.elements.namedItem("available").checked = product.available;
-      form.elements.namedItem("published").checked = product.published;
+      editorTitle.textContent = `Note PGD : ${frenchText(product.name)}`;
+      form.elements.namedItem("rating").value = String(product.rating);
     }
     overviewPanel.hidden = true;
     screens.forEach((screen) => { screen.hidden = true; });
     editor.hidden = false;
-    form.elements.namedItem("name").focus();
+    form.elements.namedItem("rating").focus();
   }
 
   function productFieldError(fieldName, message) {
@@ -2075,52 +1979,11 @@ function initializeAdminUI() {
   }
 
   function createPayload() {
-    const values = new FormData(form);
-    const price = form.elements.namedItem("price").valueAsNumber;
-    const image = String(values.get("image") || "");
-    const chariowProductId = String(values.get("chariow-product-id") || "");
-    const description = (value) => String(value || "").trim();
-    const name = String(values.get("name") || "").trim();
-    const productDescription = description(values.get("description"));
-    const currency = String(values.get("currency") || "");
-    if (!name || name.length > 200 || /[\u0000-\u001f\u007f]/.test(name)) {
-      throw productFieldError("name", "Saisissez un nom de produit valide.");
+    const rating = form.elements.namedItem("rating").valueAsNumber;
+    if (!Number.isInteger(rating) || rating < 0 || rating > 5) {
+      throw productFieldError("rating", "Saisissez une note entière comprise entre 0 et 5.");
     }
-    if (!productDescription || productDescription.length > 20000 ||
-        /[\u0000-\u001f\u007f]/.test(productDescription) ||
-        /[<>]/.test(productDescription.replace(/<br\s*\/?>/gi, ""))) {
-      throw productFieldError("description", "Saisissez une description valide.");
-    }
-    if (!Number.isSafeInteger(price) || price <= 0) {
-      throw productFieldError("price", "Saisissez un prix entier supérieur à zéro.");
-    }
-    if (!image.startsWith("assets/") || image.length > 512 || image.trim() !== image ||
-        /[\u0000-\u001f\u007f]/.test(image) || image.includes("\\") ||
-        image.includes("?") || image.includes("#") ||
-        image.split("/").some((part) => !part || part === "." || part === "..")) {
-      throw productFieldError("image", "Saisissez un chemin d’image valide situé sous assets/.");
-    }
-    if (!/^prd_[A-Za-z0-9_-]+$/.test(chariowProductId)) {
-      throw productFieldError("chariow-product-id", "L’identifiant doit commencer par prd_ et contenir uniquement des lettres, chiffres, tirets ou soulignements.");
-    }
-    if (!["XOF", "EUR", "USD"].includes(currency)) {
-      throw productFieldError("currency", "Choisissez une devise proposée.");
-    }
-    if (form.elements.namedItem("available").checked &&
-        !form.elements.namedItem("published").checked) {
-      throw productFieldError("available", "Publiez le produit avant de le rendre disponible à la vente.");
-    }
-    return {
-      name,
-      description: productDescription,
-      category: String(values.get("category") || "").trim(),
-      image,
-      price,
-      currency,
-      chariowProductId,
-      available: form.elements.namedItem("available").checked,
-      published: form.elements.namedItem("published").checked
-    };
+    return { rating };
   }
 
   async function applyMutation(options, successMessage) {
@@ -2129,8 +1992,8 @@ function initializeAdminUI() {
     try {
       const result = await controller.mutate(options);
       if (!sessionLifecycle.isCurrent(session)) return null;
-      activeProducts = result.products.filter((product) => !product.archivedAt);
-      archivedProducts = result.products.filter((product) => Boolean(product.archivedAt));
+      activeProducts = result.products;
+      archivedProducts = [];
       renderProducts();
       renderArchives();
       showAdminMessage(successMessage, "success");
@@ -2166,15 +2029,7 @@ function initializeAdminUI() {
       for (const field of form.querySelectorAll("input, textarea, select")) field.disabled = false;
       submitButton.disabled = false;
       editBlocked = false;
-      form.elements.namedItem("name").value = frenchText(latest.name);
-      form.elements.namedItem("description").value = frenchText(latest.description);
-      form.elements.namedItem("category").value = latest.category;
-      form.elements.namedItem("image").value = latest.image;
-      form.elements.namedItem("price").value = String(latest.price);
-      form.elements.namedItem("currency").value = latest.currency;
-      form.elements.namedItem("chariow-product-id").value = latest.chariowProductId || "";
-      form.elements.namedItem("available").checked = latest.available;
-      form.elements.namedItem("published").checked = latest.published;
+      form.elements.namedItem("rating").value = String(latest.rating);
       reloadButton.hidden = true;
       showFormMessage("Version actuelle rechargée. Les valeurs précédentes ont été remplacées; reprenez votre modification à partir de ces données.", "success");
     } catch (error) {
@@ -2188,75 +2043,16 @@ function initializeAdminUI() {
   async function handleProductAction(event) {
     const button = event.target.closest("[data-product-action]");
     if (!button) return;
-    const product = [...activeProducts, ...archivedProducts]
-      .find((candidate) => candidate.id === button.dataset.productId);
+    const product = activeProducts.find((candidate) => candidate.id === button.dataset.productId);
     if (!product) return;
     const action = button.dataset.productAction;
     button.closest("details")?.removeAttribute("open");
-    if (action === "edit") {
-      openEditor(product);
-      return;
-    }
-    if (action === "delete") {
-      const expectedText = `DELETE PRODUCT ${product.id}`;
-      const { confirmed, confirmation } = await showConfirmation({
-        title: "Supprimer définitivement ce produit ?",
-        message: `Cette action est irréversible pour « ${frenchText(product.name)} ». Saisissez exactement : ${expectedText}`,
-        buttonLabel: "Supprimer définitivement",
-        expectedText,
-        destructive: true
-      });
-      if (!confirmed || confirmation !== expectedText) return;
-      await applyMutation({
-        method: "DELETE",
-        productId: product.id,
-        body: { confirmation }
-      }, "Produit supprimé définitivement.");
-      return;
-    }
-    if (action === "archive") {
-      const { confirmed } = await showConfirmation({
-        title: "Archiver ce produit ?",
-        message: `« ${frenchText(product.name)} » ne sera plus dans le catalogue actif. Vous pourrez le restaurer depuis les archives.`,
-        buttonLabel: "Archiver le produit",
-        destructive: false
-      });
-      if (!confirmed) return;
-    }
-    if (action === "archive" || action === "restore") {
-      await applyMutation({
-        method: "PATCH",
-        productId: product.id,
-        body: { action }
-      }, action === "archive" ? "Produit archivé." : "Produit restauré.");
-      return;
-    }
-
-    const statusTransition = getProductStatusTransition(product, action);
-    if (!statusTransition) return;
-    const body = {
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      currency: product.currency,
-      image: product.image,
-      category: product.category,
-      chariowProductId: product.chariowProductId,
-      ...statusTransition
-    };
-    await applyMutation({
-      method: "PUT",
-      productId: product.id,
-      body
-    }, action === "availability" ? "Disponibilité mise à jour." : "Publication mise à jour.");
+    if (action === "edit") openEditor(product);
   }
 
   viewButtons.forEach((button) => button.addEventListener("click", () => {
     showView(button.dataset.adminView, { focusHeading: true });
   }));
-  document.querySelector("[data-admin-archives]").addEventListener("click", () => {
-    showView("archives", { focusHeading: true });
-  });
   productFilterButtons.forEach((button) => button.addEventListener("click", () => {
     productFilter = button.dataset.productFilter;
     productFilterButtons.forEach((filterButton) => {
@@ -2266,7 +2062,6 @@ function initializeAdminUI() {
     });
     renderProducts();
   }));
-  document.querySelector("[data-product-create]").addEventListener("click", () => openEditor());
   document.querySelector("[data-editor-cancel]").addEventListener("click", () => {
     resetEditor();
     showView(currentView);
@@ -2298,13 +2093,13 @@ function initializeAdminUI() {
       showFormMessage(error.message);
       return;
     }
-    const editing = editingProduct !== null;
+    if (!editingProduct) return;
     const result = await applyMutation({
-      method: editing ? "PUT" : "POST",
-      productId: editing ? editingProduct.id : undefined,
+      method: "PATCH",
+      productId: editingProduct.id,
       body,
-      ifMatch: editing ? editingEtag : controller.etag
-    }, editing ? "Produit modifié." : "Produit créé.");
+      ifMatch: editingEtag
+    }, "Note PGD enregistrée.");
     if (result) {
       resetEditor();
       showView("products", { loadData: false });
@@ -2318,15 +2113,6 @@ function initializeAdminUI() {
       field.removeAttribute("aria-invalid");
       errorElement.hidden = true;
       errorElement.textContent = "";
-    }
-    if (["available", "published"].includes(field.name) &&
-        (!form.elements.namedItem("available").checked ||
-          form.elements.namedItem("published").checked)) {
-      const available = form.elements.namedItem("available");
-      const availableError = form.querySelector('[data-product-error="available"]');
-      available.removeAttribute("aria-invalid");
-      availableError.hidden = true;
-      availableError.textContent = "";
     }
     if (formMessage.dataset.state === "error" &&
         formMessage.textContent === "Corrigez le champ signalé puis réessayez.") {

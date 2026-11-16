@@ -1,13 +1,16 @@
-const crypto = require("crypto");
-
-const PAYMENT_CURRENCY = "XOF";
-const CHECKOUT_SUPPORTED_TYPES = new Set(["downloadable", "course", "license", "bundle"]);
-const getBaseUrl = (env) =>
-  (env.URL || env.DEPLOY_URL || env.NETLIFY_URL || "").replace(/\/+$/, "");
+const CHARIOW_TIMEOUT_MS = 10000;
+const MAX_REQUEST_BODY_LENGTH = 8192;
+const CHECKOUT_GATEWAY_HOSTS = new Map([
+  ["orqex", new Set(["checkout.orqex.com"])]
+]);
 
 const jsonResponse = (statusCode, code, error) => ({
   statusCode,
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Cache-Control": "no-store",
+    "Content-Type": "application/json; charset=utf-8",
+    "X-Content-Type-Options": "nosniff"
+  },
   body: JSON.stringify({ code, error })
 });
 
@@ -16,31 +19,35 @@ const readChariowProduct = async ({ apiKey, productId, fetchImpl }) => {
   return fetchChariowProduct({ apiKey, productId, fetchImpl });
 };
 
-const isProductPurchasable = (product) => {
-  const price = product?.pricing?.current_price;
-  const remaining = product?.quantity?.remaining?.value;
-  return product?.status === "published" &&
-    CHECKOUT_SUPPORTED_TYPES.has(product.type) &&
-    product.has_variant_pricing !== true &&
-    product.is_free !== true &&
-    !["free", "what_you_want"].includes(product.pricing?.type) &&
-    typeof price?.value === "number" &&
-    Number.isFinite(price.value) &&
-    price.value > 0 &&
-    typeof price.currency === "string" &&
-    /^[A-Z]{3}$/.test(price.currency) &&
-    !(Number.isSafeInteger(remaining) && remaining <= 0);
+const isProductPurchasable = async (product) => {
+  const { isChariowProductPurchasable } = await import("../services/chariow/public-products.mjs");
+  return isChariowProductPurchasable(product);
 };
 
-const isSafeCheckoutUrl = (value) => {
+const isRecord = (value) =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+const hasExactKeys = (value, keys) =>
+  isRecord(value) &&
+  Object.keys(value).length === keys.length &&
+  keys.every((key) => Object.hasOwn(value, key));
+
+const isSafeCheckoutUrl = (value, gateway) => {
   if (typeof value !== "string") return false;
   try {
     const url = new URL(value);
+    const gatewayHosts = typeof gateway === "string"
+      ? CHECKOUT_GATEWAY_HOSTS.get(gateway.toLowerCase())
+      : undefined;
     return url.protocol === "https:" &&
       !url.username &&
       !url.password &&
       (!url.port || url.port === "443") &&
-      (url.hostname === "chariow.com" || url.hostname.endsWith(".chariow.com"));
+      (
+        url.hostname === "chariow.com" ||
+        url.hostname.endsWith(".chariow.com") ||
+        gatewayHosts?.has(url.hostname) === true
+      );
   } catch {
     return false;
   }
@@ -49,43 +56,68 @@ const isSafeCheckoutUrl = (value) => {
 exports.createPaymentHandler = ({
   productReader = readChariowProduct,
   fetchImpl = (...args) => fetch(...args),
-  env = process.env
+  env = process.env,
+  timeoutMs = CHARIOW_TIMEOUT_MS
 } = {}) => async (event) => {
   if (event.httpMethod !== "POST") {
     return jsonResponse(405, "METHOD_NOT_ALLOWED", "Méthode non autorisée.");
   }
 
+  const requestBody = typeof event.body === "string" ? event.body : "{}";
+  if (Buffer.byteLength(requestBody, "utf8") > MAX_REQUEST_BODY_LENGTH) {
+    return jsonResponse(413, "REQUEST_TOO_LARGE", "La requête est trop volumineuse.");
+  }
+
   let payload;
   try {
-    payload = JSON.parse(event.body || "{}");
+    payload = JSON.parse(requestBody);
   } catch {
     return jsonResponse(400, "INVALID_JSON", "Corps JSON invalide.");
   }
 
-  const nom = typeof payload.nom === "string" ? payload.nom.trim() : "";
+  if (
+    !hasExactKeys(payload, ["product_id", "email", "first_name", "last_name", "phone"]) ||
+    !hasExactKeys(payload.phone, ["number", "country_code"])
+  ) {
+    return jsonResponse(400, "INVALID_CHECKOUT_DATA", "Les informations de commande sont incomplètes.");
+  }
+
+  const firstName = typeof payload.first_name === "string" ? payload.first_name.trim() : "";
+  const lastName = typeof payload.last_name === "string" ? payload.last_name.trim() : "";
   const email = typeof payload.email === "string" ? payload.email.trim() : "";
-  const produitId = typeof payload.produitId === "string" ? payload.produitId.trim() : "";
-  const phone = typeof payload.phone === "string" ? payload.phone.replace(/\D/g, "") : "";
-  const phoneCountryCode = typeof payload.phoneCountryCode === "string"
-    ? payload.phoneCountryCode.trim().toUpperCase()
+  const productId = typeof payload.product_id === "string" ? payload.product_id.trim() : "";
+  const phoneNumber = typeof payload.phone.number === "string"
+    ? payload.phone.number.replace(/\D/g, "")
+    : "";
+  const phoneCountryCode = typeof payload.phone.country_code === "string"
+    ? payload.phone.country_code.trim().toUpperCase()
     : "";
 
   if (
-    !nom ||
+    !firstName ||
+    !lastName ||
     !email ||
-    produitId.length > 128 ||
-    !/^prd_[A-Za-z0-9_-]+$/.test(produitId) ||
-    !phone ||
+    productId.length > 128 ||
+    !/^prd_[A-Za-z0-9_-]+$/.test(productId) ||
+    !phoneNumber ||
     !phoneCountryCode
   ) {
-    return jsonResponse(400, "INVALID_CHECKOUT_DATA", "Nom, email, téléphone, pays ou produit manquant.");
+    return jsonResponse(400, "INVALID_CHECKOUT_DATA", "Prénom, nom, email, téléphone, pays ou produit manquant.");
   }
 
   if (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return jsonResponse(400, "INVALID_EMAIL", "Adresse email invalide.");
   }
 
-  if (phone.length < 6 || !/^[A-Z]{2}$/.test(phoneCountryCode)) {
+  if (
+    firstName.length > 50 ||
+    lastName.length > 50 ||
+    /[\u0000-\u001f\u007f]/.test(firstName + lastName)
+  ) {
+    return jsonResponse(400, "INVALID_NAME", "Le prénom ou le nom saisi est invalide.");
+  }
+
+  if (phoneNumber.length < 6 || !/^[A-Z]{2}$/.test(phoneCountryCode)) {
     return jsonResponse(400, "INVALID_PHONE", "Numéro de téléphone ou code pays invalide.");
   }
 
@@ -99,7 +131,7 @@ exports.createPaymentHandler = ({
   try {
     product = await productReader({
       apiKey: readApiKey,
-      productId: produitId,
+      productId,
       fetchImpl
     });
   } catch (error) {
@@ -111,10 +143,10 @@ exports.createPaymentHandler = ({
     return jsonResponse(503, "CHARIOW_READ_UNAVAILABLE", "La vérification du produit est temporairement indisponible.");
   }
 
-  if (!isProductPurchasable(product)) {
+  if (!(await isProductPurchasable(product))) {
     return jsonResponse(400, "PRODUCT_UNAVAILABLE", "Ce produit ne peut pas être commandé actuellement.");
   }
-  if (product.id !== produitId) {
+  if (product.id !== productId) {
     console.error("CHARIOW PRODUCT VALIDATION ERROR:", { code: "CHARIOW_PRODUCT_ID_MISMATCH" });
     return jsonResponse(502, "CHARIOW_INVALID_RESPONSE", "Les données du produit sont invalides.");
   }
@@ -125,20 +157,9 @@ exports.createPaymentHandler = ({
     return jsonResponse(503, "CHARIOW_CHECKOUT_UNAVAILABLE", "Le service de paiement est temporairement indisponible.");
   }
 
-  const nameParts = nom.split(/\s+/);
-  const firstName = nameParts.shift() || "Client";
-  const lastName = nameParts.join(" ") || "Client";
-  if (firstName.length > 50 || lastName.length > 50) {
-    return jsonResponse(400, "INVALID_NAME", "Le nom saisi est trop long.");
-  }
-
-  const baseUrl = getBaseUrl(env);
-  if (!baseUrl) {
-    console.error("CHARIOW CHECKOUT CONFIGURATION ERROR: site URL is missing");
-    return jsonResponse(503, "CHARIOW_CHECKOUT_UNAVAILABLE", "Le service de paiement est temporairement indisponible.");
-  }
-  const orderRef = `PGD-${crypto.randomUUID()}`;
   const checkoutUrl = `${(env.CHARIOW_API_BASE_URL || "https://api.chariow.com/v1").replace(/\/+$/, "")}/checkout`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetchImpl(checkoutUrl, {
@@ -148,18 +169,15 @@ exports.createPaymentHandler = ({
         "Content-Type": "application/json",
         Authorization: `Bearer ${checkoutApiKey}`
       },
+      signal: controller.signal,
       body: JSON.stringify({
         product_id: product.id,
         email,
         first_name: firstName,
         last_name: lastName,
-        phone: { number: phone, country_code: phoneCountryCode },
-        payment_currency: PAYMENT_CURRENCY,
-        redirect_url: `${baseUrl}/success.html`,
-        custom_metadata: {
-          produit_id: String(product.id),
-          order_ref: orderRef,
-          currency: PAYMENT_CURRENCY
+        phone: {
+          number: phoneNumber,
+          country_code: phoneCountryCode
         }
       })
     });
@@ -167,7 +185,10 @@ exports.createPaymentHandler = ({
     let data;
     try {
       data = await response.json();
-    } catch {
+    } catch (error) {
+      if (controller.signal.aborted || error?.name === "AbortError") {
+        return jsonResponse(504, "CHARIOW_TIMEOUT", "Chariow met trop de temps à répondre. Réessayez.");
+      }
       console.error("CHARIOW CHECKOUT ERROR:", { status: response.status, code: "INVALID_JSON" });
       return jsonResponse(502, "CHARIOW_INVALID_RESPONSE", "Réponse de paiement invalide.");
     }
@@ -197,13 +218,16 @@ exports.createPaymentHandler = ({
       );
     }
     if (checkout?.step === "completed") {
-      return {
-        statusCode: 200,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "completed" })
-      };
+      return jsonResponse(
+        409,
+        "ALREADY_PURCHASED",
+        "Chariow indique que cet achat est déjà finalisé."
+      );
     }
-    if (checkout?.step !== "payment" || !isSafeCheckoutUrl(checkout.payment?.checkout_url)) {
+    if (
+      checkout?.step !== "payment" ||
+      !isSafeCheckoutUrl(checkout.payment?.checkout_url, checkout.payment?.gateway)
+    ) {
       console.error("CHARIOW CHECKOUT ERROR:", { status: response.status, code: "INVALID_RESPONSE" });
       return jsonResponse(502, "CHARIOW_INVALID_RESPONSE", "Réponse de paiement invalide.");
     }
@@ -214,10 +238,15 @@ exports.createPaymentHandler = ({
       body: JSON.stringify({ status: "payment", checkout_url: checkout.payment.checkout_url })
     };
   } catch (error) {
-    console.error("CHARIOW CHECKOUT INITIALIZATION ERROR:", {
-      code: error?.name === "AbortError" ? "CHARIOW_TIMEOUT" : "CHARIOW_NETWORK_ERROR"
-    });
+    const timedOut = controller.signal.aborted || error?.name === "AbortError";
+    const code = timedOut ? "CHARIOW_TIMEOUT" : "CHARIOW_NETWORK_ERROR";
+    console.error("CHARIOW CHECKOUT INITIALIZATION ERROR:", { code });
+    if (timedOut) {
+      return jsonResponse(504, code, "Chariow met trop de temps à répondre. Réessayez.");
+    }
     return jsonResponse(502, "CHARIOW_CHECKOUT_UNAVAILABLE", "Le service de paiement est temporairement indisponible.");
+  } finally {
+    clearTimeout(timeout);
   }
 };
 

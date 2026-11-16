@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   ChariowApiError,
   fetchChariowProduct,
-  fetchChariowProducts
+  fetchChariowProducts,
+  resolveChariowDiscount,
+  resolveChariowPrice
 } from "../backend/services/chariow/products.mjs";
 
 const page = (data, hasMore, nextCursor = null) => new Response(JSON.stringify({
@@ -15,6 +17,77 @@ const page = (data, hasMore, nextCursor = null) => new Response(JSON.stringify({
 }), {
   status: 200,
   headers: { "Content-Type": "application/json" }
+});
+
+test("price resolution accepts only a valid Chariow current_price", () => {
+  assert.deepEqual(resolveChariowPrice({
+    pricing: { current_price: { value: 4200.5, currency: "XOF" } }
+  }), { value: 4200.5, currency: "XOF", originalValue: null });
+  assert.deepEqual(resolveChariowPrice({
+    pricing: {
+      current_price: { value: 4200, currency: "XOF" },
+      price: { value: 5000, currency: "XOF" },
+      effective: { value: 3000, currency: "XOF" }
+    }
+  }), { value: 4200, currency: "XOF", originalValue: 5000 });
+  assert.equal(resolveChariowPrice({
+    pricing: { effective: { value: 4200, currency: "XOF" } }
+  }), null);
+
+  for (const originalPrice of [
+    { value: 4200, currency: "XOF" },
+    { value: 3000, currency: "XOF" },
+    { value: 5000, currency: "EUR" },
+    { value: "5000", currency: "XOF" },
+    null
+  ]) {
+    assert.equal(resolveChariowPrice({
+      pricing: {
+        current_price: { value: 4200, currency: "XOF" },
+        price: originalPrice
+      }
+    }).originalValue, null);
+  }
+
+  for (const currentPrice of [
+    null,
+    { value: 0, currency: "XOF" },
+    { value: -1, currency: "XOF" },
+    { value: "4200", currency: "XOF" },
+    { value: Number.NaN, currency: "XOF" },
+    { value: 4200, currency: "xof" },
+    { value: 4200, currency: "XX" }
+  ]) {
+    assert.equal(resolveChariowPrice({
+      pricing: {
+        current_price: currentPrice,
+        effective: { value: 4200, currency: "XOF" }
+      }
+    }), null);
+  }
+});
+
+test("discount resolution preserves only a valid active Chariow price_off", () => {
+  const product = (priceOff, pricingOverrides = {}) => ({
+    pricing: {
+      current_price: { value: 3000, currency: "XOF" },
+      price: { value: 5000, currency: "XOF" },
+      price_off: priceOff,
+      ...pricingOverrides
+    }
+  });
+
+  assert.equal(resolveChariowDiscount(product("40%")), "40%");
+  assert.equal(resolveChariowDiscount(product("20%")), "20%");
+  for (const priceOff of [null, "0%", "101%", "forty", 40, " 20%"]) {
+    assert.equal(resolveChariowDiscount(product(priceOff)), null);
+  }
+  assert.equal(resolveChariowDiscount(product("40%", {
+    price: { value: 3000, currency: "XOF" }
+  })), null);
+  assert.equal(resolveChariowDiscount(product("40%", {
+    current_price: { value: 0, currency: "XOF" }
+  })), null);
 });
 
 test("product fetch paginates with a bounded page size and server-side bearer key", async () => {

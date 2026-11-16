@@ -1,10 +1,14 @@
 import { getStore } from "@netlify/blobs";
-import { buildLegacyCatalog, validateCatalog } from "./_catalog-model.mjs";
+import {
+  RATINGS_SCHEMA_VERSION,
+  validateChariowProductId,
+  validateRating,
+  validateRatings
+} from "./_ratings-model.mjs";
 
-export const CATALOG_STORE_NAME = "pgd-market-catalog";
-export const CATALOG_KEY = "catalog-v1";
-export const CATALOG_SCHEMA_VERSION = 2;
-const SCHEMA_VERSION = CATALOG_SCHEMA_VERSION;
+export const RATINGS_STORE_NAME = "ratings-v1";
+export const RATINGS_KEY = "ratings-v1";
+export const EMPTY_RATINGS_ETAG = "ratings-empty";
 
 export class CatalogStorageError extends Error {
   constructor(code, status, message) {
@@ -15,222 +19,170 @@ export class CatalogStorageError extends Error {
   }
 }
 
-const jsonRecord = (value) =>
+const isRecord = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
-const CATALOG_SEED_PRODUCT_FIELDS = [
-  "id",
-  "name",
-  "description",
-  "price",
-  "currency",
-  "image",
-  "category",
-  "chariowProductId",
-  "available",
-  "published",
-  "archivedAt"
-];
+const catalogStorageFailure = (operation, key, error) => {
+  const errorName = typeof error?.name === "string" &&
+      /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(error.name)
+    ? error.name
+    : "UnknownError";
+  const errorCode = typeof error?.code === "string" &&
+      /^[A-Za-z0-9_-]{1,64}$/.test(error.code)
+    ? error.code
+    : undefined;
+  const status = [
+    error?.status,
+    error?.statusCode,
+    error?.response?.status
+  ].find((candidate) =>
+    Number.isInteger(candidate) && candidate >= 100 && candidate <= 599
+  );
+  const details = [
+    `operation=${operation}`,
+    `key=${key}`,
+    `error=${errorName}`,
+    ...(errorCode ? [`code=${errorCode}`] : []),
+    ...(status === undefined ? [] : [`status=${status}`])
+  ].join(" ");
 
-const getCatalogStore = () =>
-  getStore({ name: CATALOG_STORE_NAME, consistency: "strong" });
+  console.error(`Netlify Blobs PGD ratings operation failed. ${details}`);
 
-const metadataFor = (catalog) => ({
-  schemaVersion: catalog.schemaVersion,
-  updatedAt: catalog.updatedAt
+  if (errorName === "MissingBlobsEnvironmentError") {
+    return new CatalogStorageError(
+      "RATINGS_CONFIGURATION_MISSING",
+      503,
+      "Netlify Blobs is not configured for PGD ratings."
+    );
+  }
+  if (status === 401 || status === 403) {
+    return new CatalogStorageError(
+      "RATINGS_ACCESS_DENIED",
+      503,
+      "Netlify Blobs denied access to PGD ratings."
+    );
+  }
+  return new CatalogStorageError(
+    "RATINGS_UNAVAILABLE",
+    503,
+    "PGD ratings storage is unavailable."
+  );
+};
+
+const getRatingsStore = () => {
+  try {
+    return getStore(RATINGS_STORE_NAME);
+  } catch (error) {
+    throw catalogStorageFailure("create-store", RATINGS_STORE_NAME, error);
+  }
+};
+
+const ratingsMetadata = (record) => ({
+  schemaVersion: RATINGS_SCHEMA_VERSION,
+  updatedAt: record.updatedAt
 });
 
-export function validateStoredCatalog(catalog) {
+export function createRatingsRecord(ratings = {}, { now = new Date().toISOString() } = {}) {
+  validateRatings(ratings);
+  return {
+    schemaVersion: RATINGS_SCHEMA_VERSION,
+    updatedAt: now,
+    ratings: { ...ratings }
+  };
+}
+
+const validateRatingsRecord = (record) => {
   if (
-    !jsonRecord(catalog) ||
-    Object.keys(catalog).some((key) => !["schemaVersion", "updatedAt", "products"].includes(key)) ||
-    catalog.schemaVersion !== SCHEMA_VERSION ||
-    typeof catalog.updatedAt !== "string" ||
-    Number.isNaN(Date.parse(catalog.updatedAt)) ||
-    new Date(catalog.updatedAt).toISOString() !== catalog.updatedAt ||
-    !Array.isArray(catalog.products) ||
-    catalog.products.length === 0
+    !isRecord(record) ||
+    Object.keys(record).some((key) => !["schemaVersion", "updatedAt", "ratings"].includes(key)) ||
+    record.schemaVersion !== RATINGS_SCHEMA_VERSION ||
+    typeof record.updatedAt !== "string" ||
+    Number.isNaN(Date.parse(record.updatedAt)) ||
+    new Date(record.updatedAt).toISOString() !== record.updatedAt
   ) {
-    throw new CatalogStorageError("CATALOG_INVALID", 400, "Catalog structure is invalid.");
+    throw new CatalogStorageError("RATINGS_INVALID", 500, "Stored PGD ratings are invalid.");
   }
 
   try {
-    validateCatalog(catalog.products);
-  } catch (error) {
-    throw new CatalogStorageError(
-      "CATALOG_INVALID",
-      400,
-      `Catalog products failed validation: ${error.code || "INVALID_PRODUCT"}.`
-    );
+    validateRatings(record.ratings);
+  } catch {
+    throw new CatalogStorageError("RATINGS_INVALID", 500, "Stored PGD ratings are invalid.");
   }
 
-  return catalog;
-}
+  return {
+    schemaVersion: RATINGS_SCHEMA_VERSION,
+    updatedAt: record.updatedAt,
+    ratings: { ...record.ratings }
+  };
+};
 
-export function prepareInitialCatalogFromLegacy({
-  publicProducts,
-  serverProducts,
-  referenceCurrency,
-  now = new Date().toISOString()
-}) {
-  const products = buildLegacyCatalog({
-    publicProducts,
-    serverProducts,
-    referenceCurrency
-  }).map((product) => ({
-    ...product,
-    createdAt: now,
-    updatedAt: now
-  }));
-
-  return validateStoredCatalog({
-    schemaVersion: SCHEMA_VERSION,
-    updatedAt: now,
-    products
-  });
-}
-
-export function prepareInitialCatalogFromSeed(seed, { now = new Date().toISOString() } = {}) {
-  if (
-    !jsonRecord(seed) ||
-    Object.keys(seed).some((key) => key !== "products") ||
-    !Array.isArray(seed.products) ||
-    seed.products.length === 0
-  ) {
-    throw new CatalogStorageError("CATALOG_INVALID", 400, "Catalog seed is invalid.");
-  }
-
-  const products = seed.products.map((product) => {
-    if (
-      !jsonRecord(product) ||
-      Object.keys(product).some((key) => !CATALOG_SEED_PRODUCT_FIELDS.includes(key)) ||
-      CATALOG_SEED_PRODUCT_FIELDS.some((key) => !Object.hasOwn(product, key))
-    ) {
-      throw new CatalogStorageError("CATALOG_INVALID", 400, "Catalog seed product is invalid.");
-    }
-
-    return {
-      ...product,
-      createdAt: now,
-      updatedAt: now
-    };
-  });
-
-  return validateStoredCatalog({
-    schemaVersion: SCHEMA_VERSION,
-    updatedAt: now,
-    products
-  });
-}
-
-export async function readCatalog({ store } = {}) {
+const readBlobEntry = async (store, key) => {
   let entry;
   try {
-    entry = await (store ?? getCatalogStore()).getWithMetadata(CATALOG_KEY, {
-      consistency: "strong",
+    entry = await store.getWithMetadata(key, {
       type: "text"
     });
+  } catch (error) {
+    throw catalogStorageFailure("read", key, error);
+  }
+
+  if (entry === null) return null;
+
+  let value;
+  try {
+    value = JSON.parse(entry.data);
   } catch {
     throw new CatalogStorageError(
-      "CATALOG_UNAVAILABLE",
+      "RATINGS_CORRUPT",
       503,
-      "Catalog storage is unavailable."
-    );
-  }
-
-  if (entry === null) {
-    throw new CatalogStorageError(
-      "CATALOG_NOT_FOUND",
-      404,
-      "Catalog has not been initialized."
-    );
-  }
-
-  let catalog;
-  try {
-    catalog = JSON.parse(entry.data);
-  } catch {
-    throw new CatalogStorageError(
-      "CATALOG_CORRUPT",
-      500,
-      "Stored catalog is not valid JSON."
-    );
-  }
-
-  try {
-    validateStoredCatalog(catalog);
-  } catch {
-    throw new CatalogStorageError(
-      "CATALOG_CORRUPT",
-      500,
-      "Stored catalog does not match the supported schema."
-    );
-  }
-
-  if (
-    entry.metadata?.schemaVersion !== undefined &&
-    entry.metadata.schemaVersion !== catalog.schemaVersion
-  ) {
-    throw new CatalogStorageError(
-      "CATALOG_CORRUPT",
-      500,
-      "Stored catalog metadata does not match the catalog."
+      "Stored PGD ratings data is not valid JSON."
     );
   }
 
   if (typeof entry.etag !== "string" || entry.etag.length === 0) {
     throw new CatalogStorageError(
-      "CATALOG_CORRUPT",
-      500,
-      "Stored catalog has no version identifier."
-    );
-  }
-
-  return { catalog, etag: entry.etag };
-}
-
-export async function initializeCatalog(catalog, { store } = {}) {
-  const preparedCatalog = validateStoredCatalog(catalog);
-  let result;
-
-  try {
-    result = await (store ?? getCatalogStore()).setJSON(
-      CATALOG_KEY,
-      preparedCatalog,
-      {
-        onlyIfNew: true,
-        metadata: metadataFor(preparedCatalog)
-      }
-    );
-  } catch {
-    throw new CatalogStorageError(
-      "CATALOG_WRITE_UNAVAILABLE",
+      "RATINGS_CORRUPT",
       503,
-      "Catalog storage is unavailable."
+      "Stored PGD ratings data has no version identifier."
     );
   }
 
-  if (!result.modified) {
-    throw new CatalogStorageError(
-      "CATALOG_ALREADY_EXISTS",
-      409,
-      "Catalog already exists; initialization did not change it."
-    );
+  return { value, etag: entry.etag, metadata: entry.metadata };
+};
+
+export async function readRatings({ store } = {}) {
+  const blobStore = store ?? getRatingsStore();
+  const currentEntry = await readBlobEntry(blobStore, RATINGS_KEY);
+
+  if (!currentEntry) {
+    return {
+      schemaVersion: RATINGS_SCHEMA_VERSION,
+      updatedAt: null,
+      ratings: {},
+      etag: EMPTY_RATINGS_ETAG,
+      initialized: false,
+      source: "empty"
+    };
   }
-  if (typeof result.etag !== "string" || result.etag.length === 0) {
+
+  const record = validateRatingsRecord(currentEntry.value);
+  if (
+    currentEntry.metadata?.schemaVersion !== undefined &&
+    currentEntry.metadata.schemaVersion !== record.schemaVersion
+  ) {
     throw new CatalogStorageError(
-      "CATALOG_WRITE_UNCONFIRMED",
+      "RATINGS_CORRUPT",
       503,
-      "Catalog initialization could not be confirmed."
+      "PGD ratings metadata does not match the stored data."
     );
   }
 
-  return { catalog: preparedCatalog, etag: result.etag };
-}
-
-export async function initializeCatalogFromLegacy(legacyData, options = {}) {
-  const catalog = prepareInitialCatalogFromLegacy(legacyData);
-  return initializeCatalog(catalog, options);
+  return {
+    ...record,
+    etag: currentEntry.etag,
+    initialized: true,
+    source: "ratings"
+  };
 }
 
 const requireEtag = (etag) => {
@@ -238,128 +190,70 @@ const requireEtag = (etag) => {
     throw new CatalogStorageError(
       "ETAG_REQUIRED",
       428,
-      "The current catalog ETag is required."
+      "The current ratings ETag is required."
     );
   }
 };
 
-export async function writeCatalog(catalog, { etag, store } = {}) {
+export async function writeRating(productId, rating, { etag, store, now = new Date().toISOString() } = {}) {
+  try {
+    validateChariowProductId(productId);
+    validateRating(rating);
+  } catch (error) {
+    throw new CatalogStorageError(error.code || "INVALID_RATING", 400, error.message);
+  }
   requireEtag(etag);
-  const preparedCatalog = validateStoredCatalog(catalog);
+
+  const blobStore = store ?? getRatingsStore();
+  const current = await readBlobEntry(blobStore, RATINGS_KEY);
+  const creating = current === null;
+  if (
+    (creating && etag !== EMPTY_RATINGS_ETAG) ||
+    (!creating && current.etag !== etag)
+  ) {
+    throw new CatalogStorageError(
+      "RATINGS_CONFLICT",
+      412,
+      "PGD ratings changed since they were read."
+    );
+  }
+  const record = current
+    ? validateRatingsRecord(current.value)
+    : { ratings: {} };
+
+  const nextRecord = createRatingsRecord(
+    { ...record.ratings, [productId]: rating },
+    { now }
+  );
   let result;
   try {
-    result = await (store ?? getCatalogStore()).setJSON(
-      CATALOG_KEY,
-      preparedCatalog,
-      {
-        onlyIfMatch: etag,
-        metadata: metadataFor(preparedCatalog)
-      }
-    );
-  } catch {
-    throw new CatalogStorageError(
-      "CATALOG_WRITE_UNAVAILABLE",
-      503,
-      "Catalog storage is unavailable."
-    );
+    result = await blobStore.setJSON(RATINGS_KEY, nextRecord, {
+      ...(creating ? { onlyIfNew: true } : { onlyIfMatch: etag }),
+      metadata: ratingsMetadata(nextRecord)
+    });
+  } catch (error) {
+    throw catalogStorageFailure("write", RATINGS_KEY, error);
   }
 
   if (!result.modified) {
     throw new CatalogStorageError(
-      "CATALOG_CONFLICT",
+      "RATINGS_CONFLICT",
       412,
-      "Catalog changed since it was read."
+      "PGD ratings changed since they were read."
     );
   }
   if (typeof result.etag !== "string" || result.etag.length === 0) {
     throw new CatalogStorageError(
-      "CATALOG_WRITE_UNCONFIRMED",
+      "RATINGS_WRITE_UNCONFIRMED",
       503,
-      "Catalog write could not be confirmed."
+      "PGD rating could not be confirmed."
     );
   }
 
-  return { catalog: preparedCatalog, etag: result.etag };
-}
-
-export async function saveCatalog(catalog, { expectedEtag, store } = {}) {
-  requireEtag(expectedEtag);
-  const current = await readCatalog({ store });
-  if (current.etag !== expectedEtag) {
-    throw new CatalogStorageError(
-      "CATALOG_CONFLICT",
-      412,
-      "Catalog changed since it was read."
-    );
-  }
-
-  const preparedCatalog = validateStoredCatalog(catalog);
-  const currentIds = new Set(current.catalog.products.map(({ id }) => id));
-  const nextIds = new Set(preparedCatalog.products.map(({ id }) => id));
-  if ([...currentIds].some((id) => !nextIds.has(id))) {
-    throw new CatalogStorageError(
-      "PRODUCT_REMOVAL_REQUIRES_EXPLICIT_OPERATION",
-      409,
-      "Catalog updates cannot silently remove existing products."
-    );
-  }
-
-  const timestamp = new Date().toISOString();
-  const currentProducts = new Map(current.catalog.products.map((product) => [product.id, product]));
-  const products = preparedCatalog.products.map((product) => {
-    const previous = currentProducts.get(product.id);
-    if (!previous) return product;
-
-    const contentChanged = Object.keys(product)
-      .filter((key) => key !== "createdAt" && key !== "updatedAt")
-      .some((key) => JSON.stringify(product[key]) !== JSON.stringify(previous[key]));
-
-    return {
-      ...product,
-      createdAt: previous.createdAt,
-      updatedAt: contentChanged ? timestamp : previous.updatedAt
-    };
-  });
-  const nextCatalog = validateStoredCatalog({
-    ...preparedCatalog,
-    updatedAt: timestamp,
-    products
-  });
-
-  return writeCatalog(nextCatalog, { etag: expectedEtag, store });
-}
-
-export async function deleteCatalogProduct(productId, { expectedEtag, store } = {}) {
-  requireEtag(expectedEtag);
-
-  const current = await readCatalog({ store });
-  if (current.etag !== expectedEtag) {
-    throw new CatalogStorageError(
-      "CATALOG_CONFLICT",
-      412,
-      "Catalog changed since it was read."
-    );
-  }
-
-  const deletedProduct = current.catalog.products.find(({ id }) => id === productId);
-  if (!deletedProduct) {
-    throw new CatalogStorageError("PRODUCT_NOT_FOUND", 404, "Product does not exist.");
-  }
-  if (current.catalog.products.length === 1) {
-    throw new CatalogStorageError(
-      "LAST_PRODUCT_CANNOT_BE_DELETED",
-      409,
-      "The last catalog product cannot be deleted."
-    );
-  }
-
-  const timestamp = new Date().toISOString();
-  const nextCatalog = validateStoredCatalog({
-    ...current.catalog,
-    updatedAt: timestamp,
-    products: current.catalog.products.filter(({ id }) => id !== productId)
-  });
-
-  const result = await writeCatalog(nextCatalog, { etag: expectedEtag, store });
-  return { ...result, deletedProduct };
+  return {
+    ...nextRecord,
+    etag: result.etag,
+    initialized: true,
+    source: "ratings"
+  };
 }

@@ -254,15 +254,6 @@
         grid-template-columns: 1fr
     }
 
-    .cart-item {
-        align-items: start;
-        flex-wrap: wrap
-    }
-
-    .cart-item .button {
-        margin-left: 90px
-    }
-
     .product-card-body {
         min-height: 0
     }
@@ -271,15 +262,6 @@
         width: 100%
     }
 
-    .cart-order-options {
-        display: grid;
-        gap: 8px;
-        min-width: 100%
-    }
-
-    .cart-actions .button {
-        width: 100%
-    }
 }
 
 @media(max-width:359px) {

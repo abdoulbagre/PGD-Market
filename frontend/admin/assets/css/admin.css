@@ -591,6 +591,29 @@ svg {
   color: var(--admin-muted);
 }
 
+.admin-home-link {
+  display: inline-flex;
+  min-height: var(--admin-control-height);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-forest);
+  font-size: .875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--admin-transition), background-color var(--admin-transition), border-color var(--admin-transition);
+}
+
+.admin-home-link:hover {
+  border-color: var(--admin-forest);
+  background: var(--admin-forest-soft);
+  color: var(--admin-forest);
+}
+
 .admin-workspace-content {
   width: min(100%, 1400px);
   margin: 0 auto;
@@ -1376,7 +1399,11 @@ svg {
   }
 
   .admin-topbar-status {
-    font-size: .85rem;
+    display: none;
+  }
+
+  .admin-home-link {
+    margin-left: auto;
   }
 
   .admin-overview {
@@ -1481,7 +1508,10 @@ svg {
   }
 
   .admin-topbar h1 {
+    overflow: hidden;
     font-size: .95rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .admin-topbar-status {

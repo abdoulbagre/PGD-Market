@@ -19,7 +19,6 @@ function translatePage() {
     shop: "titles.shop",
     product: "titles.product",
     checkout: "titles.checkout",
-    cart: "titles.cart",
     info: null
   };
   const fileName = location.pathname.split("/").pop();

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const loadBrowserModule = async (path) => {
@@ -8,13 +8,25 @@ const loadBrowserModule = async (path) => {
   return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 };
 
+const listHtmlPages = async (directory) => {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const nestedFiles = await Promise.all(entries.map(async (entry) => {
+    const file = new URL(entry.name, directory);
+    if (entry.isDirectory()) return listHtmlPages(new URL(`${entry.name}/`, directory));
+    return entry.isFile() && entry.name.endsWith(".html") ? [file] : [];
+  }));
+  return nestedFiles.flat();
+};
+
 const [{
   CatalogLoadError,
   createCatalogClient,
   findCatalogProduct,
+  getProductDiscountPercentage,
+  getOriginalProductPrice,
   isPublicProduct,
-  migrateLegacyProductIds,
-  plainTextDescription
+  plainTextDescription,
+  renderProductRating
 }, currency] = await Promise.all([
   loadBrowserModule("../frontend/storefront/assets/js/catalog.js"),
   loadBrowserModule("../frontend/storefront/assets/js/currency.js")
@@ -22,13 +34,15 @@ const [{
 
 const product = (overrides = {}) => ({
   id: "prd_5lj7fz8k",
-  legacyPgdId: "550e8400-e29b-41d4-a716-446655440000",
   name: "Produit FR",
   description: "Description FR<br>suite",
   price: 4200,
+  originalPrice: null,
+  discountPercentage: null,
   currency: "XOF",
-  image: "assets/images/1.jpg",
+  image: "https://cdn.chariow.com/products/guide-cover.jpg",
   category: "Guides",
+  rating: 0,
   ...overrides
 });
 
@@ -51,37 +65,94 @@ test("public catalog validates Chariow IDs, real prices, currencies, and safe im
     }
   })), true);
   assert.equal(isPublicProduct(product({ id: "invalid" })), false);
-  assert.equal(isPublicProduct(product({ id: "550e8400-e29b-41d4-a716-446655440000" })), false);
-  assert.equal(isPublicProduct(product({ legacyPgdId: "not-a-uuid" })), false);
-  assert.equal(isPublicProduct(product({ legacyPgdId: null })), true);
+  assert.equal(isPublicProduct(product({ id: "00000000-0000-4000-8000-000000000001" })), false);
   assert.equal(isPublicProduct(product({ files: ["delivery.pdf"] })), false);
   assert.equal(isPublicProduct(product({ price: "4200" })), false);
   assert.equal(isPublicProduct(product({ price: 4200.5 })), true);
   assert.equal(isPublicProduct(product({ currency: "GHS" })), true);
+  assert.equal(isPublicProduct(product({ originalPrice: 5000 })), true);
+  assert.equal(isPublicProduct(product({ originalPrice: 4200 })), false);
+  assert.equal(isPublicProduct(product({ originalPrice: 4000 })), false);
+  assert.equal(isPublicProduct(product({ originalPrice: undefined })), false);
+  assert.equal(isPublicProduct(product({
+    price: 3000,
+    originalPrice: 5000,
+    discountPercentage: "40%"
+  })), true);
+  assert.equal(isPublicProduct(product({
+    price: 3000,
+    originalPrice: 5000,
+    discountPercentage: "20%"
+  })), true);
+  assert.equal(isPublicProduct(product({
+    price: 3000,
+    originalPrice: 5000,
+    discountPercentage: "0%"
+  })), false);
+  assert.equal(isPublicProduct(product({
+    price: 3000,
+    originalPrice: null,
+    discountPercentage: "40%"
+  })), false);
+  assert.equal(isPublicProduct(product({ rating: 5 })), true);
+  assert.equal(isPublicProduct(product({ rating: 6 })), false);
+  assert.equal(isPublicProduct(product({ rating: 1.5 })), false);
   assert.equal(isPublicProduct(product({ image: "http://cdn.example/image.jpg" })), false);
   assert.equal(isPublicProduct(product({ image: "https://cdn.example/image.jpg" })), true);
 });
 
-test("legacy product references migrate only through exact catalog mappings", () => {
-  const secondProduct = product({
-    id: "prd_ln1r0vbr",
-    legacyPgdId: "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90"
-  });
+test("original product price is shown only when valid and higher than the current price", () => {
+  assert.equal(getOriginalProductPrice(product({ price: 3000, originalPrice: 5000 })), 5000);
+  assert.equal(getOriginalProductPrice(product({ price: 3000, originalPrice: 3000 })), null);
+  assert.equal(getOriginalProductPrice(product({ price: 3000, originalPrice: 2500 })), null);
+  assert.equal(getOriginalProductPrice(product({ price: 3000, originalPrice: null })), null);
+  for (const percentage of ["40%", "20%"]) {
+    assert.equal(getProductDiscountPercentage(product({
+      price: 3000,
+      originalPrice: 5000,
+      discountPercentage: percentage
+    })), percentage);
+  }
+  for (const percentage of [null, "0%", "101%", "sale", 40]) {
+    assert.equal(getProductDiscountPercentage(product({
+      price: 3000,
+      originalPrice: 5000,
+      discountPercentage: percentage
+    })), null);
+  }
+  assert.equal(getProductDiscountPercentage(product({
+    price: 3000,
+    originalPrice: null,
+    discountPercentage: "40%"
+  })), null);
+  assert.match(currency.formatDisplayPrice(5000, "XOF"), /XOF/);
+});
+
+test("product URLs resolve only exact canonical Chariow IDs", () => {
+  const secondProduct = product({ id: "prd_ln1r0vbr" });
   const catalog = [product(), secondProduct];
-  const unknownLegacyId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
   assert.equal(findCatalogProduct(catalog, "prd_5lj7fz8k"), catalog[0]);
-  assert.equal(findCatalogProduct(catalog, "550e8400-e29b-41d4-a716-446655440000"), catalog[0]);
-  assert.equal(findCatalogProduct(catalog, unknownLegacyId), null);
-  assert.deepEqual(
-    migrateLegacyProductIds([
-      "550e8400-e29b-41d4-a716-446655440000",
-      "7f9c2b1d-8e4a-4d3f-a9c2-1b5e6f7a8c90",
-      unknownLegacyId,
-      "prd_5lj7fz8k"
-    ], catalog),
-    ["prd_5lj7fz8k", "prd_ln1r0vbr", unknownLegacyId]
+  assert.equal(findCatalogProduct(catalog, "00000000-0000-4000-8000-000000000001"), null);
+  assert.equal(findCatalogProduct(catalog, "prd_unknown"), null);
+  assert.equal(
+    findCatalogProduct(
+      [product({ id: "00000000-0000-4000-8000-000000000001" })],
+      "00000000-0000-4000-8000-000000000001"
+    ),
+    null
   );
+  assert.equal(catalog[0].id, "prd_5lj7fz8k");
+});
+
+test("PGD ratings render one accessible five-star row without review counts", () => {
+  assert.equal(renderProductRating(0, "Note PGD : 0 sur 5 étoiles"), "");
+  assert.equal(renderProductRating(6, "Invalid"), "");
+  const markup = renderProductRating(3, 'Note PGD : 3 sur 5 "étoiles"');
+  assert.equal((markup.match(/&#9733;/g) || []).length, 3);
+  assert.equal((markup.match(/&#9734;/g) || []).length, 2);
+  assert.match(markup, /role="img" aria-label="Note PGD : 3 sur 5 &quot;étoiles&quot;"/);
+  assert.doesNotMatch(markup, /avis|review|count/i);
 });
 
 test("Chariow HTML descriptions become readable text without executable markup", () => {
@@ -165,28 +236,138 @@ test("failed requests can be retried and a successful result is then cached", as
   assert.equal(calls, 2);
 });
 
-test("catalog prices retain their currency and mixed-currency totals are not calculated", () => {
+test("catalog prices retain their source currency without conversion", () => {
   assert.equal("convertPriceBetweenCurrencies" in currency, false);
   assert.equal("CHECKOUT_CURRENCY" in currency, false);
   assert.match(currency.formatDisplayPrice(4200, "XOF"), /4.*200/);
   assert.match(currency.formatDisplayPrice(4200, "XOF"), /XOF/);
   assert.match(currency.formatDisplayPrice(100, "EUR"), /100.*EUR/);
-  assert.deepEqual(currency.sumPricesInSameCurrency([product(), product({ price: 700 })]), {
-    amount: 4900,
-    currency: "XOF"
-  });
-  assert.equal(currency.sumPricesInSameCurrency([product(), product({ currency: "EUR" })]), null);
-  assert.equal(currency.sumPricesInSameCurrency([]), null);
 });
 
-test("storefront checkout sends the Chariow ID and omits client-controlled amounts", async () => {
+test("the home link is part of the shared desktop and mobile navigation", async () => {
+  const [app, fr, editorial] = await Promise.all([
+    readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/storefront/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("../frontend/storefront/assets/css/editorial.css", import.meta.url), "utf8")
+  ]);
+  const navigation = app.match(/<nav id="main-nav"[\s\S]*?<\/nav>/)?.[0] || "";
+
+  assert.match(navigation, /<a href="index\.html" data-i18n="navigation\.home"><\/a>/);
+  assert.match(navigation, /<a href="boutique\.html"/);
+  assert.match(navigation, /<a href="contact\.html"/);
+  assert.equal(fr.navigation.home, "Accueil");
+  assert.match(app, /aria-controls="main-nav"/);
+  assert.match(app, /homeLink\.setAttribute\("aria-current", "page"\)/);
+  assert.match(editorial, /grid-column:\s*1\s*\/\s*-1;/);
+  assert.match(editorial, /\.main-nav\.is-open\s*\{\s*display:\s*flex;\s*flex-direction:\s*column;/);
+});
+
+test("public storefront copy does not expose provider details or Chariow product IDs", async () => {
+  const htmlPages = await listHtmlPages(new URL("../frontend/storefront/", import.meta.url));
+  const [app, locale] = await Promise.all([
+    readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/storefront/locales/fr.json", import.meta.url), "utf8")
+  ]);
+  // Keep the internal server-error code matcher out of the user-facing copy check.
+  const appCopy = app.replace(/CHARIOW_/g, "");
+  const storefrontUi = await Promise.all([
+    ...htmlPages
+      .filter((file) => !["mentions-legales.html", "politique-confidentialite.html"].includes(file.pathname.split("/").pop()))
+      .map((file) => readFile(file, "utf8")),
+    appCopy,
+    locale
+  ]);
+  const publicCopy = storefrontUi.join("\n");
+  const allPageMarkup = (await Promise.all(htmlPages.map((file) => readFile(file, "utf8")))).join("\n");
+
+  assert.doesNotMatch(publicCopy, /chariow/i);
+  assert.doesNotMatch(`${publicCopy}\n${allPageMarkup}`, /\bprd_[a-z0-9]+\b/i);
+});
+
+test("product cards show the PGD rating and direct product link without cart controls", async () => {
+  const [app, editorial] = await Promise.all([
+    readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/storefront/assets/css/editorial.css", import.meta.url), "utf8")
+  ]);
+  const card = app.slice(app.indexOf("function productCard"), app.indexOf("function setupShop"));
+  const image = card.indexOf('class="product-card__visual"');
+  const discountBadge = card.indexOf("${discountBadgeMarkup(product)}");
+  const name = card.indexOf("<h3>");
+  const description = card.indexOf('class="product-card__description"');
+  const price = card.indexOf("<strong>${escapeHtml(formatPrice(product))}</strong>");
+  const originalPrice = card.indexOf("${originalPriceMarkup(product)}");
+  const rating = card.indexOf("renderProductRating(product.rating");
+  const format = card.indexOf("Format numérique");
+  const viewAction = card.indexOf('class="button product-card__view"');
+
+  assert.ok(image >= 0 && discountBadge > image && name > discountBadge && description > name);
+  assert.match(card, /src="\$\{escapeHtml\(productImage\(product\)\)\}"/);
+  assert.ok(app.includes('new URL(product.image, new URL("../../", import.meta.url)).href'));
+  assert.ok(rating > description && price > rating && originalPrice > price && format > originalPrice && viewAction > format);
+  assert.match(app, /getOriginalProductPrice\(product\)/);
+  assert.match(app, /getProductDiscountPercentage\(product\)/);
+  assert.match(card, /discountBadgeMarkup\(product\)/);
+  assert.match(app, /<del class="product-price-original">/);
+  assert.doesNotMatch(card, /cart|panier|data-add/i);
+  assert.match(editorial, /\.product-card__visual\s*\{[^}]*--product-card-visual-height:\s*clamp\(190px,\s*18vw,\s*235px\);[^}]*height:\s*var\(--product-card-visual-height\);[^}]*aspect-ratio:\s*auto;/s);
+  assert.match(editorial, /\.product-card__discount-badge\s*\{[^}]*position:\s*absolute;[^}]*top:\s*14px;[^}]*right:\s*14px;[^}]*background:\s*var\(--forest-deep\);[^}]*color:\s*var\(--white\);[^}]*white-space:\s*nowrap;/s);
+  assert.match(editorial, /\.product-image img\s*\{[^}]*object-fit:\s*contain;/s);
+  assert.match(editorial, /\.product-card \.product-card__view\s*\{[^}]*background:\s*var\(--forest\);[^}]*color:\s*var\(--white\);/s);
+  assert.match(editorial, /\.product-card__view span\s*\{\s*color:\s*var\(--gold-champagne\);/s);
+  assert.match(editorial, /\.product-card-footer\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s);
+  assert.match(editorial, /\.product-card-price\s*\{[^}]*flex-wrap:\s*wrap;/s);
+  assert.match(editorial, /\.product-price-original\s*\{[^}]*font-size:\s*\.84rem;[^}]*white-space:\s*nowrap;/s);
+});
+
+test("no cart route, browser storage, buttons, or local cart migrations remain", async () => {
+  const storefrontRoot = new URL("../frontend/storefront/", import.meta.url);
+  const [app, catalog, locale] = await Promise.all([
+    readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/storefront/assets/js/catalog.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/storefront/locales/fr.json", import.meta.url), "utf8")
+  ]);
+  const htmlPages = await listHtmlPages(storefrontRoot);
+  const styles = await Promise.all([
+    "editorial.css",
+    "premium.css",
+    "style.css",
+    "responsive.css",
+    "components.css"
+  ].map((file) => readFile(new URL(`../frontend/storefront/assets/css/${file}`, import.meta.url), "utf8")));
+
+  assert.equal(existsSync(new URL("../frontend/storefront/panier.html", import.meta.url)), false);
+  assert.doesNotMatch(app, /cart|panier|localStorage|readCart|writeCart|migrateLegacyProductIds/i);
+  assert.doesNotMatch(catalog, /migrateLegacyProductIds/);
+  assert.doesNotMatch(locale, /"cart"|panier/i);
+  assert.doesNotMatch(htmlPages.map((file) => file.pathname).join("\n"), /panier\.html/);
+  assert.doesNotMatch(styles.join("\n"), /cart-link|cart-count|button-cart|product-cart|cart-item|cart-content|cart-summary|cart-actions/i);
+});
+
+test("mobile product detail places its purchase action before the long description", async () => {
+  const [app, editorial] = await Promise.all([
+    readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/storefront/assets/css/editorial.css", import.meta.url), "utf8")
+  ]);
+  const setupProduct = app.slice(app.indexOf("function setupProduct"), app.indexOf("function productFromUrlId"));
+  const purchasePanel = setupProduct.slice(setupProduct.indexOf("const purchasePanel = `"), setupProduct.indexOf("const stickyAction"));
+
+  assert.doesNotMatch(setupProduct, /product-card__discount-badge|discountBadgeMarkup/);
+  assert.ok(purchasePanel.indexOf('class="product-price"') < purchasePanel.indexOf("${actions}"));
+  assert.match(purchasePanel, /class="product-purchase__prices".*?originalPriceMarkup\(product\)/s);
+  assert.match(setupProduct, /class="product-sticky-cta__prices".*?originalPriceMarkup\(product\)/s);
+  assert.match(editorial, /\.product-purchase__prices\s*\{[^}]*flex-wrap:\s*wrap;/s);
+  assert.match(editorial, /\.product-sticky-cta__prices\s*\{[^}]*flex-direction:\s*column;/s);
+  assert.match(setupProduct, /const actions = `.*?class="product-actions"/s);
+  assert.match(setupProduct, /target\.innerHTML = `.*?class="product-visual".*?class="product-heading".*?\$\{purchasePanel\}.*?class="rich-description"/s);
+  assert.match(editorial, /@media \(max-width: 760px\) \{[\s\S]*?\.product-detail \{[\s\S]*?grid-template-columns: 1fr;[\s\S]*?\.product-visual \{[\s\S]*?aspect-ratio: 1\.25;[\s\S]*?\.product-heading,\s*\.product-purchase,\s*\.rich-description \{[\s\S]*?grid-row: auto;/);
+});
+
+test("storefront checkout sends one canonical product and only required customer fields", async () => {
   const app = await readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8");
-  const successPage = await readFile(new URL("../frontend/storefront/success.html", import.meta.url), "utf8");
   const htmlPages = await Promise.all([
     "../frontend/storefront/index.html",
     "../frontend/storefront/boutique.html",
     "../frontend/storefront/produit.html",
-    "../frontend/storefront/panier.html",
     "../frontend/storefront/commande.html"
   ].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
 
@@ -196,53 +377,61 @@ test("storefront checkout sends the Chariow ID and omits client-controlled amoun
   assert.doesNotMatch(app, /convertPriceBetweenCurrencies/);
   assert.match(app, /findCatalogProduct\(catalogProducts, id\)/);
   assert.match(app, /productFromUrlId/);
-  assert.match(app, /history\.replaceState/);
+  assert.doesNotMatch(app, /history\.replaceState/);
   assert.match(app, /shop\.noResults/);
   assert.match(app, /catalog\.noProducts/);
-  assert.match(app, /produitId: product\.id/);
-  assert.doesNotMatch(app, /chariowProductId|currency: CHECKOUT_CURRENCY/);
-  assert.match(app, /migrateLegacyProductIds\(cartIds, catalogProducts\)/);
-  assert.match(app, /writeCart\(migratedCartIds\)/);
+  assert.match(app, /product_id: product\.id/);
+  assert.match(app, /first_name: firstName/);
+  assert.match(app, /last_name: lastName/);
+  const checkoutSetup = app.slice(app.indexOf("function setupCheckout"), app.indexOf("async function renderPage"));
+  assert.match(checkoutSetup, /formatPrice\(product\)/);
+  assert.doesNotMatch(checkoutSetup, /originalPriceMarkup/);
+  assert.match(app, /phone:\s*\{\s*number: phone,\s*country_code: phoneCountryCode/s);
+  assert.doesNotMatch(app, /chariowProductId|currency: CHECKOUT_CURRENCY|readCart|writeCart|panier|cart/i);
   assert.doesNotMatch(app, /crypto\.randomUUID|randomUUID/);
   assert.match(app, /produit\.html\?id=\$\{encodeURIComponent\(product\.id\)\}/);
   assert.match(app, /commande\.html\?id=\$\{encodeURIComponent\(product\.id\)\}/);
-  assert.match(app, /sumPricesInSameCurrency/);
-  assert.match(app, /memoryCart/);
-  assert.match(app, /cartStorageUnavailable/);
-  assert.match(htmlPages[4], /maxlength="2"/);
-  assert.doesNotMatch(app.match(/JSON\.stringify\(\{[^}]+\}\)/)?.[0] || "", /price|currency/);
-  assert.match(app, /data\.status === "completed"/);
+  assert.match(htmlPages[3], /maxlength="2"/);
+  assert.match(htmlPages[3], /name="first_name"[^>]*required/);
+  assert.match(htmlPages[3], /name="last_name"[^>]*required/);
+  assert.match(htmlPages[3], /name="email"[^>]*required/);
+  assert.match(htmlPages[3], /name="phone\.number"[^>]*required/);
+  assert.match(htmlPages[3], /name="phone\.country_code"[^>]*required/);
+  const requestPayload = app.match(/body: JSON\.stringify\(\{([\s\S]*?)\}\)/)?.[1] || "";
+  assert.doesNotMatch(requestPayload, /price|currency|variant|metadata|affiliate|campaign|coupon|shipping/i);
+  assert.doesNotMatch(app, /data\.status === "completed"|checkout\.completedNotice/);
+  assert.doesNotMatch(app, /success\.html|setupResult|data-page === "success"/);
   assert.match(app, /ALREADY_PURCHASED/);
   assert.ok(htmlPages.every((html) => html.includes('assets/js/app.js')));
   assert.match(app, /data-catalog-retry/);
-  assert.match(successPage, /Retour du paiement/);
-  assert.match(successPage, /ne confirme pas à elle seule le statut/);
-  assert.doesNotMatch(successPage, /paiement réussi|commande a été effectuée avec succès|data-i18n="successPage/);
-  assert.doesNotMatch(app, /successPage\.(heading|delivery|spam|thanks)/);
-  const resultPageLogic = app.slice(app.indexOf("function setupResult"), app.indexOf("async function renderPage"));
-  assert.doesNotMatch(resultPageLogic, /localStorage|writeCart/);
+  assert.doesNotMatch(app, /location\.href\s*=\s*["'](?:success|cancel)\.html/);
 });
 
-test("storefront cart CTAs expose add feedback and an accessible cart count", async () => {
+test("the PGD rating is shared by product cards and product descriptions", async () => {
   const [app, fr, theme] = await Promise.all([
     readFile(new URL("../frontend/storefront/assets/js/app.js", import.meta.url), "utf8"),
     readFile(new URL("../frontend/storefront/locales/fr.json", import.meta.url), "utf8").then(JSON.parse),
     readFile(new URL("../frontend/storefront/assets/css/premium.css", import.meta.url), "utf8")
   ]);
-  assert.match(app, /button\.classList\.add\("is-added"\)/);
-  assert.match(app, /cart\.added/);
-  assert.match(app, /data-add-cart="\$\{escapeHtml\(product\.id\)\}"/);
-  assert.match(app, /cartCountOne/);
-  assert.match(app, /cart-item__quantity/);
-  assert.match(app, /cart-summary__total/);
-  assert.match(app, /class="cart-empty"/);
+  const detail = app.slice(app.indexOf("function setupProduct"), app.indexOf("function productFromUrlId"));
+  assert.match(app, /renderProductRating\(product\.rating,/);
+  assert.match(detail, /class="rich-description">\$\{renderProductRating\(product\.rating,/);
+  assert.equal(fr.product.ratingLabel, "Note PGD : {{rating}} sur 5 étoiles");
   assert.match(app, /footer-brand-block/);
   assert.match(theme, /--paper:\s*#f7f3eb/);
   assert.match(theme, /--accent-dark:\s*#183a2f/);
   assert.match(theme, /--warm:\s*#99652f/);
-  assert.equal(fr.navigation.cartCountEmpty, "Panier, aucun article");
-  assert.equal(fr.cart.itemOne, "{{count}} produit sélectionné");
-  assert.equal(fr.cart.summaryNote, "Chaque ressource se commande individuellement.");
+});
+
+test("storefront logo wordmark matches its symbol gold on light and dark surfaces", async () => {
+  const editorial = await readFile(
+    new URL("../frontend/storefront/assets/css/editorial.css", import.meta.url),
+    "utf8"
+  );
+  assert.match(editorial, /--bronze:\s*#925c21/i);
+  assert.match(editorial, /\.brand:not\(\.footer-brand\) span:first-of-type\s*\{\s*color:\s*var\(--bronze\);/);
+  assert.match(editorial, /--gold-champagne:\s*#d7c391/i);
+  assert.match(editorial, /\.footer-brand span:first-of-type\s*\{\s*color:\s*var\(--gold-champagne\);/);
 });
 
 test("the storefront uses French text only and has no English locale dependency", async () => {
@@ -260,10 +449,9 @@ test("the storefront uses French text only and has no English locale dependency"
   assert.equal(typeof fr.catalog.backToShop, "string");
   assert.equal(typeof fr.shop.noResults, "string");
   assert.equal(typeof fr.product.notFound, "string");
-  assert.equal(typeof fr.cart.staleReferences, "string");
-  assert.match(fr.product.notFound, /Sélectionnez de nouveau le produit/);
-  assert.match(fr.cart.staleReferences, /Sélectionnez de nouveau le produit/);
-  assert.equal(typeof fr.cart.removeStale, "string");
+  assert.match(fr.product.notFound, /n’est plus disponible/);
+  assert.equal(fr.checkout.firstName, "Prénom");
+  assert.equal(fr.checkout.lastName, "Nom");
   assert.match(app, /initFrench/);
   assert.doesNotMatch(app, /languagechange|documentElement\.lang === "en"|language\.js|en\.json/);
   assert.doesNotMatch(frenchModule, /setLanguage|data-language-select|en\.json|localStorage/);
